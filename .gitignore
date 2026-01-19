@@ -1,0 +1,384 @@
+# ============================================================================
+# Production-Grade Python .gitignore
+# For FastAPI/Docker Web Projects
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# 1. SECRETS & ENVIRONMENT VARIABLES (HIGHEST PRIORITY)
+# ----------------------------------------------------------------------------
+# Never commit secrets, API keys, credentials, or sensitive configuration
+.env
+.env.*
+.env.local
+.env.*.local
+.env.production
+.env.staging
+.env.development
+.env.test
+.env.bak
+.venv.bak
+ENV.bak/
+
+# Credential files
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+secrets.yaml
+secrets.json
+secrets/
+credentials.json
+
+# ----------------------------------------------------------------------------
+# 2. PYTHON COMPILED & CACHE FILES
+# ----------------------------------------------------------------------------
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+
+# C extensions
+*.so
+
+# Cython debug symbols
+cython_debug/
+
+# ----------------------------------------------------------------------------
+# 3. VIRTUAL ENVIRONMENTS
+# ----------------------------------------------------------------------------
+# Python virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# Tool-specific virtual environments
+.conda/
+.pyenv/
+
+# ----------------------------------------------------------------------------
+# 4. PACKAGE MANAGEMENT & DISTRIBUTION
+# ----------------------------------------------------------------------------
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-wheel-metadata/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Package manager lock files (uncomment based on your preference)
+# Recommended: commit lock files for applications, ignore for libraries
+#Pipfile.lock
+#poetry.lock
+#pdm.lock
+#uv.lock
+
+# PDM
+.pdm.toml
+.pdm-python
+.pdm-build/
+
+# PEP 582
+__pypackages__/
+
+# UV package manager
+.uv/
+
+# ----------------------------------------------------------------------------
+# 5. TESTING & COVERAGE
+# ----------------------------------------------------------------------------
+# Unit test / coverage reports
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+htmlcov/
+cover/
+.testmondata
+
+# ----------------------------------------------------------------------------
+# 6. TYPE CHECKING & LINTING
+# ----------------------------------------------------------------------------
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyright
+pyrightconfig.json
+
+# Ruff
+.ruff_cache/
+
+# Pylint
+.pylint.d/
+
+# Pyre
+.pyre/
+
+# Pytype
+.pytype/
+
+# ----------------------------------------------------------------------------
+# 7. DATABASE FILES
+# ----------------------------------------------------------------------------
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+db.sqlite3
+db.sqlite3-journal
+
+# PostgreSQL
+*.pgsql
+
+# Database dumps and backups
+*.sql
+*.dump
+*.bak
+backups/
+
+# ----------------------------------------------------------------------------
+# 8. FASTAPI & WEB FRAMEWORK SPECIFIC
+# ----------------------------------------------------------------------------
+# FastAPI / Uvicorn
+instance/
+.webassets-cache
+
+# Django (if used alongside)
+local_settings.py
+media/
+
+# Flask
+instance/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# ----------------------------------------------------------------------------
+# 9. DOCKER & CONTAINERS
+# ----------------------------------------------------------------------------
+# Docker override and local files
+docker-compose.override.yml
+docker-compose.local.yml
+Dockerfile.local
+.dockerignore.local
+
+# Docker volumes and data
+volumes/
+.docker/
+
+# ----------------------------------------------------------------------------
+# 10. IDE & EDITOR FILES
+# ----------------------------------------------------------------------------
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# Zed
+.zed/
+
+# ----------------------------------------------------------------------------
+# 11. OPERATING SYSTEM FILES
+# ----------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*
+
+# ----------------------------------------------------------------------------
+# 12. DOCUMENTATION
+# ----------------------------------------------------------------------------
+# Sphinx
+docs/_build/
+docs/_static/
+docs/_templates/
+
+# MkDocs
+/site
+
+# PyBuilder
+.pybuilder/
+target/
+
+# ----------------------------------------------------------------------------
+# 13. JUPYTER & IPYTHON
+# ----------------------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb
+profile_default/
+ipython_config.py
+
+# ----------------------------------------------------------------------------
+# 14. LOGS & TEMPORARY FILES
+# ----------------------------------------------------------------------------
+# Log files
+*.log
+log/
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+
+# ----------------------------------------------------------------------------
+# 15. LOCALIZATION
+# ----------------------------------------------------------------------------
+# Translations
+*.mo
+*.pot
+
+# ----------------------------------------------------------------------------
+# 16. SCRAPY (if used)
+# ----------------------------------------------------------------------------
+.scrapy
+
+# ----------------------------------------------------------------------------
+# 17. SAGEMATH
+# ----------------------------------------------------------------------------
+*.sage.py
+
+# ----------------------------------------------------------------------------
+# 18. LOCAL DEVELOPMENT FILES
+# ----------------------------------------------------------------------------
+# Local development overrides
+*.local
+*.dev
+local/
+.local/
+requirements.local.txt
+config.local.*
+
+# Scratch files
+scratch/
+playground/
+sandbox/
+
+# ----------------------------------------------------------------------------
+# 19. CLOUD & DEPLOYMENT
+# ----------------------------------------------------------------------------
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# AWS
+.aws/
+*.pem
+
+# GCP
+.gcloud/
+
+# Azure
+.azure/
+
+# ----------------------------------------------------------------------------
+# 20. MISCELLANEOUS
+# ----------------------------------------------------------------------------
+# Editor backup files
+*.bak
+*.backup
+*.orig
+
+# Archive files (if generated during build)
+*.tar.gz
+*.zip
+*.7z
+
+# System files
+.fuse_hidden*
+
+# Local files
+local/
