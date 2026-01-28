@@ -58,6 +58,45 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 chars.next();
             }
 
+            // String parsing
+            '"' => {
+                chars.next(); // consume opening quote
+                let mut s = String::new();
+                while let Some(&c) = chars.peek() {
+                    match c {
+                        '"' => {
+                            chars.next(); // consume closing quote
+                            break;
+                        }
+                        _ => {
+                            s.push(c);
+                            chars.next();
+                        }
+                    }
+                }
+                tokens.push(Token::String(s));
+            }
+
+            // Keyword parsing (true, false, null)
+            't' | 'f' | 'n' => {
+                let mut word = String::new();
+                while let Some(&c) = chars.peek() {
+                    match c {
+                        'a'..='z' => {
+                            word.push(c);
+                            chars.next();
+                        }
+                        _ => break,
+                    }
+                }
+                match word.as_str() {
+                    "true" => tokens.push(Token::Boolean(true)),
+                    "false" => tokens.push(Token::Boolean(false)),
+                    "null" => tokens.push(Token::Null),
+                    _ => {}
+                }
+            }
+
             // Skip unknown characters
             _ => {
                 chars.next();
