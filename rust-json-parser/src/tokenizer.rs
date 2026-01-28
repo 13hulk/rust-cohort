@@ -21,9 +21,45 @@ pub enum Token {
     Null,
 }
 
-// TODO: Implement your tokenize function here
 pub fn tokenize(input: &str) -> Vec<Token> {
-    Vec::new() // Returns empty vector - tests will fail but code compiles
+    let mut tokens = Vec::new();
+    let mut chars = input.chars().peekable();
+
+    while let Some(&ch) = chars.peek() {
+        match ch {
+            // Structural tokens
+            '{' => {
+                tokens.push(Token::LeftBrace);
+                chars.next();
+            }
+            '}' => {
+                tokens.push(Token::RightBrace);
+                chars.next();
+            }
+            '[' => {
+                tokens.push(Token::LeftBracket);
+                chars.next();
+            }
+            ']' => {
+                tokens.push(Token::RightBracket);
+                chars.next();
+            }
+            ':' => {
+                tokens.push(Token::Colon);
+                chars.next();
+            }
+            ',' => {
+                tokens.push(Token::Comma);
+                chars.next();
+            }
+            // Skip unknown characters
+            _ => {
+                chars.next();
+            }
+        }
+    }
+
+    tokens
 }
 
 #[cfg(test)]
