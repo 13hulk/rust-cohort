@@ -97,6 +97,24 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 }
             }
 
+            // Number parsing
+            '0'..='9' => {
+                let mut num_str = String::new();
+                while let Some(&c) = chars.peek() {
+                    match c {
+                        '0'..='9' | '.' | '-' => {
+                            num_str.push(c);
+                            chars.next();
+                        }
+                        _ => break,
+                    }
+                }
+                match num_str.parse::<f64>().ok() {
+                    Some(n) => tokens.push(Token::Number(n)),
+                    _ => {}
+                }
+            }
+
             // Skip unknown characters
             _ => {
                 chars.next();
