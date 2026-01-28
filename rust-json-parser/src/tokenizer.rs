@@ -52,6 +52,12 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 tokens.push(Token::Comma);
                 chars.next();
             }
+
+            // Skip whitespace
+            ' ' | '\n' | '\t' => {
+                chars.next();
+            }
+
             // Skip unknown characters
             _ => {
                 chars.next();
