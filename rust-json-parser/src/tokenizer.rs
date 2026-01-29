@@ -109,9 +109,12 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                         _ => break,
                     }
                 }
-                match num_str.parse::<f64>().ok() {
-                    Some(n) => tokens.push(Token::Number(n)),
-                    _ => {}
+                // match num_str.parse::<f64>().ok() {
+                //     Some(n) => tokens.push(Token::Number(n)),
+                //     _ => {}
+                // }
+                if let Ok(n) = num_str.parse::<f64>() {
+                    tokens.push(Token::Number(n))
                 }
             }
 
