@@ -3,14 +3,14 @@ repos:
     hooks:
       - id: cargo-fmt
         name: cargo fmt
-        entry: cargo fmt --
+        entry: cargo fmt --manifest-path rust-json-parser/Cargo.toml --
         language: system
         types: [rust]
         pass_filenames: false
 
       - id: cargo-clippy
         name: cargo clippy
-        entry: cargo clippy -- -D warnings
+        entry: cargo clippy --manifest-path rust-json-parser/Cargo.toml -- -D warnings
         language: system
         types: [rust]
         pass_filenames: false
