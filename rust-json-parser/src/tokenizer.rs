@@ -158,6 +158,27 @@ mod tests {
     }
 
     #[test]
+    fn test_number_negative() {
+        let tokens = tokenize("-42");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0], Token::Number(-42.0));
+    }
+
+    #[test]
+    fn test_number_simple_decimal() {
+        let tokens = tokenize("3.14");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0], Token::Number(3.14));
+    }
+
+    #[test]
+    fn test_number_negative_decimal() {
+        let tokens = tokenize("-0.99");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0], Token::Number(-0.99));
+    }
+
+    #[test]
     fn test_tokenize_string() {
         let tokens = tokenize(r#""hello world""#);
 
