@@ -120,6 +120,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
 
             // Skip unknown characters
             _ => {
+                println!("Skipping unknown character: {}", ch);
                 chars.next();
             }
         }
