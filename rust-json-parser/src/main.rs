@@ -4,7 +4,12 @@ fn main() {
     let json = r#"
             {
                 "name": "Alice Johnson",
-                "age": 28,
+                "age": 30,
+                "number_0": 0,
+                "number_1": -42,
+                "number_2": 3.14159,
+                "number_3": .5,
+                "number_4": -3.14159,
                 "email": "alice@example.com",
                 "active": true,
                 "preferences": {
