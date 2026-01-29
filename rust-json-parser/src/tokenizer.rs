@@ -98,7 +98,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
             }
 
             // Number parsing
-            '0'..='9' => {
+            '0'..='9' | '.' | '-' => {
                 let mut num_str = String::new();
                 while let Some(&c) = chars.peek() {
                     match c {
