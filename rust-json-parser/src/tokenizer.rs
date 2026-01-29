@@ -93,7 +93,9 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                     "true" => tokens.push(Token::Boolean(true)),
                     "false" => tokens.push(Token::Boolean(false)),
                     "null" => tokens.push(Token::Null),
-                    _ => {}
+                    _ => {
+                        println!("Skipping unknown word: {}", word);
+                    }
                 }
             }
 
