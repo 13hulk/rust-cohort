@@ -1,26 +1,24 @@
-// TODO: Define your Token enum here
-// Hint: You need variants for:
-// LeftBrace, RightBrace, LeftBracket, RightBracket, Comma, Colon
-// String(String), Number(f64), Boolean(bool), Null
+//! JSON tokenizer module.
+
+/// Represents a single JSON token.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    // Simple variants (no data)
-    LeftBrace,
-    RightBrace,
-    LeftBracket,
-    RightBracket,
-    Comma,
-    Colon,
+    // Structural tokens
+    LeftBrace,    // {
+    RightBrace,   // }
+    LeftBracket,  // [
+    RightBracket, // ]
+    Comma,        // ,
+    Colon,        // :
 
-    // Variants with data
-    String(String),
-    Number(f64),
-    Boolean(bool),
-
-    // Null variant
-    Null,
+    // Value tokens
+    String(String), // e.g., "hello"
+    Number(f64),    // e.g., 42, 3.14, -10
+    Boolean(bool),  // true, false
+    Null,           // null
 }
 
+/// Parses a JSON string and returns a list of tokens.
 pub fn tokenize(input: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
     let mut chars = input.chars().peekable();
@@ -53,23 +51,23 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 chars.next();
             }
 
-            // Skip whitespace
+            // Whitespace: skip
             ' ' | '\n' | '\t' => {
                 chars.next();
             }
 
-            // String parsing
+            // String: parse
             '"' => {
                 chars.next(); // consume opening quote
                 let mut s = String::new();
                 while let Some(&c) = chars.peek() {
                     match c {
                         '"' => {
-                            chars.next(); // consume closing quote
+                            chars.next(); // closing quote: end string
                             break;
                         }
                         _ => {
-                            s.push(c);
+                            s.push(c); // any other char: collect
                             chars.next();
                         }
                     }
@@ -77,18 +75,20 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 tokens.push(Token::String(s));
             }
 
-            // Keyword parsing (true, false, null)
+            // Keywords: parse true, false, null
             't' | 'f' | 'n' => {
                 let mut word = String::new();
+                // Collect: lowercase letters only
                 while let Some(&c) = chars.peek() {
                     match c {
                         'a'..='z' => {
                             word.push(c);
                             chars.next();
                         }
-                        _ => break,
+                        _ => break, // non-letter: stop collecting
                     }
                 }
+                // Match: keyword to token
                 match word.as_str() {
                     "true" => tokens.push(Token::Boolean(true)),
                     "false" => tokens.push(Token::Boolean(false)),
@@ -99,28 +99,30 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 }
             }
 
-            // Number parsing
+            // Number: parse
             '0'..='9' | '.' | '-' => {
                 let mut num_str = String::new();
+                // Collect: digits, decimal point, minus sign
                 while let Some(&c) = chars.peek() {
                     match c {
                         '0'..='9' | '.' | '-' => {
                             num_str.push(c);
                             chars.next();
                         }
-                        _ => break,
+                        _ => break, // non-numeric char: stop collecting
                     }
                 }
                 // match num_str.parse::<f64>().ok() {
                 //     Some(n) => tokens.push(Token::Number(n)),
                 //     _ => {}
                 // }
+                // Convert: string to f64
                 if let Ok(n) = num_str.parse::<f64>() {
                     tokens.push(Token::Number(n))
                 }
             }
 
-            // Skip unknown characters
+            // Unknown: skip
             _ => {
                 println!("Skipping unknown character: {}", ch);
                 chars.next();

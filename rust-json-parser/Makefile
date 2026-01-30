@@ -1,4 +1,4 @@
-.PHONY: help build test run fmt clippy check clean pre-commit-install all
+.PHONY: help build test run fmt clippy check clean doc pre-commit-install all
 
 help:
 	@echo "Available commands:"
@@ -10,6 +10,7 @@ help:
 	@echo "  make clippy             - Run linter"
 	@echo "  make check              - Quick compile check"
 	@echo "  make clean              - Remove build artifacts"
+	@echo "  make doc                - Generate and open docs"
 	@echo "  make pre-commit-install - Install pre-commit hooks"
 	@echo "  make all                - Run fmt, clippy, test, build"
 
@@ -36,6 +37,9 @@ check:
 
 clean:
 	cargo clean
+
+doc:
+	cargo doc --open
 
 pre-commit-install:
 	pre-commit install

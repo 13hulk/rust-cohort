@@ -1,3 +1,5 @@
+//! JSON tokenizer example.
+
 use rust_json_parser::tokenizer::tokenize;
 
 fn main() {
