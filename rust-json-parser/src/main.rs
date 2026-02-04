@@ -10,7 +10,7 @@ fn main() {
                 "number_0": 0,
                 "number_1": -42,
                 "number_2": 3.14159,
-                "number_3": .5,
+                "number_3": 0.5,
                 "number_4": -3.14159,
                 "email": "alice@example.com",
                 "active": true,
@@ -28,10 +28,15 @@ fn main() {
         "#;
     println!("Input JSON: {}", json);
 
-    let tokens = tokenize(json);
-
-    println!("\nTokens:");
-    for token in &tokens {
-        println!("{:?}", token);
+    match tokenize(json) {
+        Ok(tokens) => {
+            println!("\nTokens:");
+            for token in &tokens {
+                println!("{:?}", token);
+            }
+        }
+        Err(e) => {
+            println!("\nError: {}", e);
+        }
     }
 }
