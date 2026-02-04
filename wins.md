@@ -24,9 +24,28 @@ Anything you consider a win counts but even better if it's a result of your prog
 
 ## Week 02: 2026-01-26 - 2026-02-01
 
--
--
--
+### Key Learning: Result vs Option
+- `Result<T, E>` - for operations that can fail with an error (e.g., parsing invalid JSON)
+- `Option<T>` - for values that may or may not exist, where absence isn't an error (e.g., `.peek()` on iterator)
+- The try operator (`?`) replaces verbose match statements - makes happy path clean and readable
+- Both use pattern matching: `Ok/Err` for Result, `Some/None` for Option
+
+### Error Handling Foundation
+- Implemented custom `JsonError` enum with struct variants (named fields)
+- Each error carries position information for helpful error messages
+- Learned the try operator (`?`) for elegant error propagation
+
+### Type-Safe Parsing
+- Created `JsonValue` enum for 4 primitive types (Null, Boolean, Number, String)
+- Converted tokenizer from `Vec<Token>` to `Result<Vec<Token>, JsonError>`
+- Built `parse_json()` function that parses primitive JSON values
+
+### Testing Practices
+- Learned table-driven testing pattern for testing multiple inputs concisely
+- Understood how to test Option methods: `.is_some()`, `.is_none()`, `.unwrap_or()`
+
+### Challenges
+- Curriculum interpretation - Initially confused "Test Option methods" with "methods returning Option" - clarified it means testing Option's built-in methods like `.is_some()`, `.unwrap_or()`
 
 ## Week 03: 2026-02-02 - 2026-02-08
 
