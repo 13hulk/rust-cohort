@@ -340,6 +340,8 @@ local/
 .local/
 requirements.local.txt
 config.local.*
+CLAUDE.md
+.claude/
 
 # Scratch files
 scratch/
@@ -380,6 +382,6 @@ sandbox/
 # System files
 .fuse_hidden*
 
-# Local files
-local/
-target/
+ # Rust build
+/target/
+**/target/
