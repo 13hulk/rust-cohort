@@ -34,7 +34,7 @@ fn main() {
         "middle_name": null,
         "balance": 1250.75,
         "debt": -499.99,
-        "temperature": -40,
+        "temperature": -4,
         "zero": 0,
         "tiny": 0.001,
         "preferences": {
