@@ -118,8 +118,8 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
                 }
             }
 
-            // Number: parse (starts with digit or minus sign)
-            '0'..='9' | '-' => {
+            // Number: parse (starts with digit, minus sign, or decimal point)
+            '0'..='9' | '-' | '.' => {
                 let start_position = position;
                 let mut num_str = String::new();
                 // Collect: digits, decimal point, minus sign
@@ -133,6 +133,14 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
                         _ => break, // non-numeric char: stop collecting
                     }
                 }
+                // Check for invalid leading decimal (e.g., ".5" is not valid JSON)
+                if num_str.starts_with('.') {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "valid JSON token".to_string(),
+                        found: num_str,
+                        position: start_position,
+                    });
+                }
                 // Convert: string to f64
                 match num_str.parse::<f64>() {
                     Ok(n) => tokens.push(Token::Number(n)),
@@ -143,15 +151,6 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
                         });
                     }
                 }
-            }
-
-            // Standalone decimal point - not a valid JSON number
-            '.' => {
-                return Err(JsonError::UnexpectedToken {
-                    expected: "valid JSON token".to_string(),
-                    found: ch.to_string(),
-                    position,
-                });
             }
 
             // Unknown: return error
