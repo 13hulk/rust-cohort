@@ -133,8 +133,10 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, JsonError> {
                         _ => break, // non-numeric char: stop collecting
                     }
                 }
-                // Check for invalid leading decimal (e.g., ".5" is not valid JSON)
-                if num_str.starts_with('.') {
+                // Check for invalid number formats:
+                // - ".5" (leading decimal without digit)
+                // - "-.5" (minus followed by decimal without digit)
+                if num_str.starts_with('.') || num_str.starts_with("-.") {
                     return Err(JsonError::UnexpectedToken {
                         expected: "valid JSON token".to_string(),
                         found: num_str,
@@ -323,9 +325,16 @@ mod tests {
     #[test]
     fn test_leading_decimal_not_a_number() -> Result<()> {
         // .5 is invalid JSON - numbers must have leading digit (0.5 is valid)
-        let tokens = tokenize(".5");
-        // Should NOT be interpreted as 0.5
-        assert!(tokens.is_err() || !tokens.unwrap().contains(&Token::Number(0.5)));
+        let result = tokenize(".5");
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_minus_leading_decimal_not_a_number() -> Result<()> {
+        // -.5 is invalid JSON - must be -0.5
+        let result = tokenize("-.5");
+        assert!(result.is_err());
         Ok(())
     }
 
