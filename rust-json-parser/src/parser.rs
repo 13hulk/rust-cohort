@@ -11,13 +11,13 @@ pub struct JsonParser {
 }
 
 impl JsonParser {
-    pub fn new(input: &str) -> std::result::Result<Self, JsonError> {
+    pub fn new(input: &str) -> Result<Self, JsonError> {
         let mut tokenizer = Tokenizer::new(input);
         let tokens = tokenizer.tokenize()?;
         Ok(Self { tokens, current: 0 })
     }
 
-    pub fn parse(&mut self) -> std::result::Result<JsonValue, JsonError> {
+    pub fn parse(&mut self) -> Result<JsonValue, JsonError> {
         if self.tokens.is_empty() {
             return Err(JsonError::UnexpectedEndOfInput {
                 expected: "JSON value".to_string(),
