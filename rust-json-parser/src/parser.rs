@@ -4,9 +4,6 @@ use crate::error::JsonError;
 use crate::tokenizer::{Token, Tokenizer};
 use crate::value::JsonValue;
 
-/// Result type alias for convenience.
-type Result<T> = std::result::Result<T, JsonError>;
-
 /// Holds tokens and current position for parsing.
 pub struct JsonParser {
     tokens: Vec<Token>,
@@ -59,11 +56,6 @@ impl JsonParser {
     fn is_at_end(&self) -> bool {
         self.current >= self.tokens.len()
     }
-}
-
-/// Backward-compatible wrapper around JsonParser.
-pub fn parse_json(input: &str) -> Result<JsonValue> {
-    JsonParser::new(input)?.parse()
 }
 
 #[cfg(test)]
