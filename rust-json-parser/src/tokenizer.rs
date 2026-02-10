@@ -482,10 +482,9 @@ mod tests {
 
     #[test]
     fn test_tokenizer_struct_creation() {
-        let _tokenizer = Tokenizer::new("test");
-        // Verify the struct was created (it exists and compiles)
-        // We can't access private fields, so just verify tokenize works
-        assert!(true); // struct creation didn't panic
+        let mut tokenizer = Tokenizer::new("42");
+        let result = tokenizer.tokenize();
+        assert!(result.is_ok());
     }
 
     #[test]
