@@ -18,6 +18,14 @@ pub enum JsonError {
         value: String,
         position: usize,
     },
+    InvalidEscape {
+        char: char,
+        position: usize,
+    },
+    InvalidUnicode {
+        sequence: String,
+        position: usize,
+    },
 }
 
 impl fmt::Display for JsonError {
@@ -43,6 +51,20 @@ impl fmt::Display for JsonError {
             }
             JsonError::InvalidNumber { value, position } => {
                 write!(f, "Invalid number at position {}: {}", position, value)
+            }
+            JsonError::InvalidEscape { char, position } => {
+                write!(
+                    f,
+                    "Invalid escape sequence '\\{}' at position {}",
+                    char, position
+                )
+            }
+            JsonError::InvalidUnicode { sequence, position } => {
+                write!(
+                    f,
+                    "Invalid unicode escape '\\u{}' at position {}",
+                    sequence, position
+                )
             }
         }
     }
@@ -102,5 +124,63 @@ mod tests {
         let _ = format!("{:?}", token_error);
         let _ = format!("{:?}", eof_error);
         let _ = format!("{:?}", num_error);
+    }
+
+    #[test]
+    fn test_invalid_escape_display() {
+        let error = JsonError::InvalidEscape {
+            char: 'x',
+            position: 7,
+        };
+
+        let message = format!("{}", error);
+        assert!(message.contains("Invalid escape sequence"));
+        assert!(message.contains("\\x"));
+        assert!(message.contains("position 7"));
+    }
+
+    #[test]
+    fn test_invalid_unicode_display() {
+        let error = JsonError::InvalidUnicode {
+            sequence: "ZZZZ".to_string(),
+            position: 3,
+        };
+
+        let message = format!("{}", error);
+        assert!(message.contains("Invalid unicode escape"));
+        assert!(message.contains("\\uZZZZ"));
+        assert!(message.contains("position 3"));
+    }
+
+    #[test]
+    fn test_error_is_std_error() {
+        let errors: Vec<Box<dyn std::error::Error>> = vec![
+            Box::new(JsonError::UnexpectedToken {
+                expected: "value".to_string(),
+                found: "@".to_string(),
+                position: 0,
+            }),
+            Box::new(JsonError::UnexpectedEndOfInput {
+                expected: "closing quote".to_string(),
+                position: 5,
+            }),
+            Box::new(JsonError::InvalidNumber {
+                value: "1.2.3".to_string(),
+                position: 0,
+            }),
+            Box::new(JsonError::InvalidEscape {
+                char: 'q',
+                position: 2,
+            }),
+            Box::new(JsonError::InvalidUnicode {
+                sequence: "GHIJ".to_string(),
+                position: 4,
+            }),
+        ];
+
+        for error in &errors {
+            // All variants implement std::error::Error, so .source() is callable
+            assert!(error.source().is_none());
+        }
     }
 }
