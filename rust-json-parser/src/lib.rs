@@ -8,37 +8,37 @@ pub mod value;
 #[cfg(test)]
 mod integration_tests {
     use crate::error::JsonError;
-    use crate::parser::parse_json;
+    use crate::parser::JsonParser;
     use crate::tokenizer::{Token, Tokenizer};
     use crate::value::JsonValue;
 
     #[test]
     fn test_parse_string_value() {
-        let result = parse_json(r#""hello""#).unwrap();
+        let result = JsonParser::new(r#""hello""#).unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::String("hello".to_string()));
     }
 
     #[test]
     fn test_parse_number_value() {
-        let result = parse_json("42.5").unwrap();
+        let result = JsonParser::new("42.5").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Number(42.5));
     }
 
     #[test]
     fn test_parse_boolean_value() {
-        let result = parse_json("true").unwrap();
+        let result = JsonParser::new("true").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Boolean(true));
     }
 
     #[test]
     fn test_parse_null_value() {
-        let result = parse_json("null").unwrap();
+        let result = JsonParser::new("null").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Null);
     }
 
     #[test]
     fn test_error_propagation() {
-        let result = parse_json("@invalid");
+        let result = JsonParser::new("@invalid");
         assert!(result.is_err());
         match result {
             Err(JsonError::UnexpectedToken { found, .. }) => {
