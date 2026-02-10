@@ -9,7 +9,7 @@ pub mod value;
 mod integration_tests {
     use crate::error::JsonError;
     use crate::parser::parse_json;
-    use crate::tokenizer::{Token, tokenize};
+    use crate::tokenizer::{Token, Tokenizer};
     use crate::value::JsonValue;
 
     #[test]
@@ -50,7 +50,7 @@ mod integration_tests {
 
     #[test]
     fn test_tokenizer_direct_usage() {
-        let tokens = tokenize(r#"{"key": 123}"#).unwrap();
+        let tokens = Tokenizer::new(r#"{"key": 123}"#).tokenize().unwrap();
         assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0], Token::LeftBrace);
         assert_eq!(tokens[1], Token::String("key".to_string()));
