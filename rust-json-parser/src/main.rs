@@ -1,7 +1,7 @@
 //! JSON parser example.
 
 use rust_json_parser::parser::parse_json;
-use rust_json_parser::tokenizer::tokenize;
+use rust_json_parser::tokenizer::Tokenizer;
 
 fn main() {
     // 1. Parsing primitive values
@@ -50,7 +50,7 @@ fn main() {
     }"#;
     println!("Input: {}\n", complex_json);
     println!("Tokens:");
-    match tokenize(complex_json) {
+    match Tokenizer::new(complex_json).tokenize() {
         Ok(tokens) => {
             for token in &tokens {
                 println!("  {:?}", token);

@@ -1,7 +1,7 @@
 //! JSON parser module for parsing primitive values.
 
 use crate::error::JsonError;
-use crate::tokenizer::{Token, tokenize};
+use crate::tokenizer::{Token, Tokenizer};
 use crate::value::JsonValue;
 
 /// Result type alias for convenience.
@@ -9,7 +9,7 @@ type Result<T> = std::result::Result<T, JsonError>;
 
 /// Parses a JSON string and returns a JsonValue.
 pub fn parse_json(input: &str) -> Result<JsonValue> {
-    let tokens = tokenize(input)?;
+    let tokens = Tokenizer::new(input).tokenize()?;
 
     if tokens.is_empty() {
         return Err(JsonError::UnexpectedEndOfInput {
