@@ -7,28 +7,63 @@ use crate::value::JsonValue;
 /// Result type alias for convenience.
 type Result<T> = std::result::Result<T, JsonError>;
 
-/// Parses a JSON string and returns a JsonValue.
+/// Holds tokens and current position for parsing.
+pub struct JsonParser {
+    tokens: Vec<Token>,
+    current: usize,
+}
+
+impl JsonParser {
+    pub fn new(input: &str) -> std::result::Result<Self, JsonError> {
+        let mut tokenizer = Tokenizer::new(input);
+        let tokens = tokenizer.tokenize()?;
+        Ok(Self { tokens, current: 0 })
+    }
+
+    pub fn parse(&mut self) -> std::result::Result<JsonValue, JsonError> {
+        if self.tokens.is_empty() {
+            return Err(JsonError::UnexpectedEndOfInput {
+                expected: "JSON value".to_string(),
+                position: 0,
+            });
+        }
+
+        match self.advance() {
+            Some(Token::String(s)) => Ok(JsonValue::String(s)),
+            Some(Token::Number(n)) => Ok(JsonValue::Number(n)),
+            Some(Token::Boolean(b)) => Ok(JsonValue::Boolean(b)),
+            Some(Token::Null) => Ok(JsonValue::Null),
+            Some(other) => Err(JsonError::UnexpectedToken {
+                expected: "primitive JSON value".to_string(),
+                found: format!("{:?}", other),
+                position: 0,
+            }),
+            None => Err(JsonError::UnexpectedEndOfInput {
+                expected: "JSON value".to_string(),
+                position: 0,
+            }),
+        }
+    }
+
+    fn advance(&mut self) -> Option<Token> {
+        if self.current < self.tokens.len() {
+            let token = self.tokens[self.current].clone();
+            self.current += 1;
+            Some(token)
+        } else {
+            None
+        }
+    }
+
+    #[allow(dead_code)]
+    fn is_at_end(&self) -> bool {
+        self.current >= self.tokens.len()
+    }
+}
+
+/// Backward-compatible wrapper around JsonParser.
 pub fn parse_json(input: &str) -> Result<JsonValue> {
-    let tokens = Tokenizer::new(input).tokenize()?;
-
-    if tokens.is_empty() {
-        return Err(JsonError::UnexpectedEndOfInput {
-            expected: "JSON value".to_string(),
-            position: 0,
-        });
-    }
-
-    match &tokens[0] {
-        Token::String(s) => Ok(JsonValue::String(s.clone())),
-        Token::Number(n) => Ok(JsonValue::Number(*n)),
-        Token::Boolean(b) => Ok(JsonValue::Boolean(*b)),
-        Token::Null => Ok(JsonValue::Null),
-        other => Err(JsonError::UnexpectedToken {
-            expected: "primitive JSON value".to_string(),
-            found: format!("{:?}", other),
-            position: 0,
-        }),
-    }
+    JsonParser::new(input)?.parse()
 }
 
 #[cfg(test)]
@@ -37,40 +72,44 @@ mod tests {
 
     #[test]
     fn test_parse_string() {
-        let result = parse_json(r#""hello world""#).unwrap();
+        let result = JsonParser::new(r#""hello world""#)
+            .unwrap()
+            .parse()
+            .unwrap();
         assert_eq!(result, JsonValue::String("hello world".to_string()));
     }
 
     #[test]
     fn test_parse_number() {
-        let result = parse_json("42.5").unwrap();
+        let result = JsonParser::new("42.5").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Number(42.5));
 
-        let result = parse_json("0").unwrap();
+        let result = JsonParser::new("0").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Number(0.0));
 
-        let result = parse_json("-10").unwrap();
+        let result = JsonParser::new("-10").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Number(-10.0));
     }
 
     #[test]
     fn test_parse_boolean() {
-        let result = parse_json("true").unwrap();
+        let result = JsonParser::new("true").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Boolean(true));
 
-        let result = parse_json("false").unwrap();
+        let result = JsonParser::new("false").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Boolean(false));
     }
 
     #[test]
     fn test_parse_null() {
-        let result = parse_json("null").unwrap();
+        let result = JsonParser::new("null").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Null);
     }
 
     #[test]
     fn test_parse_error_empty() {
-        let result = parse_json("");
+        let mut parser = JsonParser::new("").unwrap();
+        let result = parser.parse();
         assert!(result.is_err());
 
         match result {
@@ -84,7 +123,7 @@ mod tests {
 
     #[test]
     fn test_parse_error_invalid_token() {
-        let result = parse_json("@");
+        let result = JsonParser::new("@");
         assert!(result.is_err());
         match result {
             Err(JsonError::UnexpectedToken {
@@ -100,7 +139,7 @@ mod tests {
     #[test]
     fn test_invalid_characters() {
         for input in ["@", "$", "%", "^"] {
-            let result = parse_json(input);
+            let result = JsonParser::new(input);
             assert!(result.is_err(), "Should fail for: {}", input);
             assert!(matches!(result, Err(JsonError::UnexpectedToken { .. })));
         }
@@ -119,34 +158,124 @@ mod tests {
         ];
 
         for (input, expected) in test_cases {
-            let result = parse_json(input).unwrap();
+            let result = JsonParser::new(input).unwrap().parse().unwrap();
             assert_eq!(result, expected, "Failed for input: {}", input);
         }
     }
 
     #[test]
     fn test_parse_with_whitespace() {
-        let result = parse_json("  42  ").unwrap();
+        let result = JsonParser::new("  42  ").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Number(42.0));
 
-        let result = parse_json("\n\ttrue\n").unwrap();
+        let result = JsonParser::new("\n\ttrue\n").unwrap().parse().unwrap();
         assert_eq!(result, JsonValue::Boolean(true));
     }
 
     #[test]
     fn test_result_pattern_matching() {
-        let result = parse_json("42");
+        let result = JsonParser::new("42").unwrap().parse();
 
         match result {
             Ok(JsonValue::Number(n)) => assert_eq!(n, 42.0),
             _ => panic!("Expected successful number parse"),
         }
 
-        let result = parse_json("@invalid@");
+        let result = JsonParser::new("@invalid@");
 
         match result {
             Err(JsonError::UnexpectedToken { .. }) => {} // Expected
             _ => panic!("Expected UnexpectedToken error"),
         }
+    }
+
+    // New tests
+
+    #[test]
+    fn test_parser_creation() {
+        let parser = JsonParser::new("42");
+        assert!(parser.is_ok());
+    }
+
+    #[test]
+    fn test_parser_creation_tokenize_error() {
+        let result = JsonParser::new("@");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_string_with_newline() {
+        let result = JsonParser::new(r#""hello\nworld""#)
+            .unwrap()
+            .parse()
+            .unwrap();
+        if let JsonValue::String(s) = result {
+            assert!(s.contains('\n'));
+        } else {
+            panic!("Expected String value");
+        }
+    }
+
+    #[test]
+    fn test_parse_string_with_tab() {
+        let result = JsonParser::new(r#""col1\tcol2""#).unwrap().parse().unwrap();
+        if let JsonValue::String(s) = result {
+            assert!(s.contains('\t'));
+        } else {
+            panic!("Expected String value");
+        }
+    }
+
+    #[test]
+    fn test_parse_string_with_quotes() {
+        let result = JsonParser::new(r#""say \"hi\"""#).unwrap().parse().unwrap();
+        if let JsonValue::String(s) = result {
+            assert!(s.contains('"'));
+        } else {
+            panic!("Expected String value");
+        }
+    }
+
+    #[test]
+    fn test_parse_string_with_unicode() {
+        let result = JsonParser::new(r#""\u0048ello""#).unwrap().parse().unwrap();
+        assert_eq!(result, JsonValue::String("Hello".to_string()));
+    }
+
+    #[test]
+    fn test_parse_complex_escapes() {
+        let result = JsonParser::new(r#""line1\nline2\t\"quoted\"""#)
+            .unwrap()
+            .parse()
+            .unwrap();
+        if let JsonValue::String(s) = result {
+            assert!(s.contains('\n'));
+            assert!(s.contains('\t'));
+            assert!(s.contains('"'));
+        } else {
+            panic!("Expected String value");
+        }
+    }
+
+    #[test]
+    fn test_parse_empty_input() {
+        let mut parser = JsonParser::new("").unwrap();
+        let result = parser.parse();
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(JsonError::UnexpectedEndOfInput { .. })
+        ));
+    }
+
+    #[test]
+    fn test_parse_whitespace_only() {
+        let mut parser = JsonParser::new("   ").unwrap();
+        let result = parser.parse();
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(JsonError::UnexpectedEndOfInput { .. })
+        ));
     }
 }
