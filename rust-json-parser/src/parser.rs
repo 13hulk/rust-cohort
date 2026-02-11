@@ -250,6 +250,30 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_negative_number() {
+        let result = JsonParser::new("-3.14").unwrap().parse().unwrap();
+        assert_eq!(result, JsonValue::Number(-3.14));
+    }
+
+    #[test]
+    fn test_parse_boolean_true() {
+        let result = JsonParser::new("true").unwrap().parse().unwrap();
+        assert_eq!(result, JsonValue::Boolean(true));
+    }
+
+    #[test]
+    fn test_parse_boolean_false() {
+        let result = JsonParser::new("false").unwrap().parse().unwrap();
+        assert_eq!(result, JsonValue::Boolean(false));
+    }
+
+    #[test]
+    fn test_parse_simple_string() {
+        let result = JsonParser::new(r#""hello""#).unwrap().parse().unwrap();
+        assert_eq!(result, JsonValue::String("hello".to_string()));
+    }
+
+    #[test]
     fn test_parse_empty_input() {
         let mut parser = JsonParser::new("").unwrap();
         let result = parser.parse();
