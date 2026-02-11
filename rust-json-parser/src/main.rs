@@ -1,15 +1,18 @@
 //! JSON parser example.
 
-use rust_json_parser::parser::parse_json;
-use rust_json_parser::tokenizer::tokenize;
+use rust_json_parser::parser::JsonParser;
+use rust_json_parser::tokenizer::Tokenizer;
 
 fn main() {
     // 1. Parsing primitive values
     println!("--- Parsing Primitive Values ---\n");
     let primitives = [r#""hello world""#, "42", "-3.14", "true", "false", "null"];
     for input in primitives {
-        match parse_json(input) {
-            Ok(value) => println!("{:>15} => {:?}", input, value),
+        match JsonParser::new(input) {
+            Ok(mut parser) => match parser.parse() {
+                Ok(value) => println!("{:>15} => {:?}", input, value),
+                Err(e) => println!("{:>15} => Error: {}", input, e),
+            },
             Err(e) => println!("{:>15} => Error: {}", input, e),
         }
     }
@@ -18,8 +21,11 @@ fn main() {
     println!("\n--- Parsing Simple JSON ---\n");
     let simple_json = r#"{"name": "Alice", "age": 28}"#;
     println!("Input: {}\n", simple_json);
-    match parse_json(simple_json) {
-        Ok(value) => println!("Parsed: {:?}", value),
+    match JsonParser::new(simple_json) {
+        Ok(mut parser) => match parser.parse() {
+            Ok(value) => println!("Parsed: {:?}", value),
+            Err(e) => println!("Error: {}", e),
+        },
         Err(e) => println!("Error: {}", e),
     }
 
@@ -50,7 +56,7 @@ fn main() {
     }"#;
     println!("Input: {}\n", complex_json);
     println!("Tokens:");
-    match tokenize(complex_json) {
+    match Tokenizer::new(complex_json).tokenize() {
         Ok(tokens) => {
             for token in &tokens {
                 println!("  {:?}", token);
