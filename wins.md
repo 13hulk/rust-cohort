@@ -49,9 +49,32 @@ Anything you consider a win counts but even better if it's a result of your prog
 
 ## Week 03: 2026-02-02 - 2026-02-08
 
--
--
--
+### From Functions to Structs
+- Refactored both tokenizer and parser from free functions to struct-based designs
+    - `Tokenizer` struct with `new(&str)`, `tokenize(&mut self)`, `peek(&self)`, `advance(&mut self)`
+    - `JsonParser` struct with `new(&str) -> Result<Self>`, `parse(&mut self)`, `advance(&mut self)`
+- Removed the `parse_json()` wrapper function, migrated all callers to `JsonParser` API directly
+
+### Ownership and Borrowing in Practice
+- Applied "borrow at boundary, own internally" pattern: `Tokenizer::new()` takes `&str` but stores `Vec<char>`
+- Understood why `JsonValue::String` must contain `String` (owned) not `&str` (borrowed) -- the parsed value must outlive the parser
+- Used `.clone()` in `advance()` to extract tokens from a `Vec` without moving -- first practical encounter with the borrow checker's constraints on indexed access
+
+### Method Receiver Choices
+- Made deliberate `&self` vs `&mut self` decisions for every method
+    - `peek()` and `is_at_end()` use `&self` (read-only access)
+    - `advance()`, `tokenize()`, and `parse()` use `&mut self` (modify position state)
+- Understood the connection to borrowing rules: `&self` = shared reference, `&mut self` = exclusive reference
+
+### Escape Sequence and Unicode Handling
+- Implemented all 8 JSON escape sequences: `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`
+- Implemented `\uXXXX` unicode escapes using `u32::from_str_radix` and `char::from_u32`
+- Added `InvalidEscape` and `InvalidUnicode` error variants with `Display` implementations
+- Learned to use Rust raw strings (`r#"..."#`) for writing escape sequence tests
+
+### Challenges
+- The `.clone()` in parser `advance()` -- cannot move out of an indexed Vec, had to clone
+- Choosing `Vec<char>` over `&str` with lifetimes -- don't fully understand lifetimes yet, so went with the simpler owned approach
 
 ## Week 04: 2026-02-09 - 2026-02-15
 
