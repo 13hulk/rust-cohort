@@ -154,33 +154,37 @@ mod tests {
 
     #[test]
     fn test_error_is_std_error() {
-        let errors: Vec<Box<dyn std::error::Error>> = vec![
-            Box::new(JsonError::UnexpectedToken {
-                expected: "value".to_string(),
-                found: "@".to_string(),
-                position: 0,
-            }),
-            Box::new(JsonError::UnexpectedEndOfInput {
-                expected: "closing quote".to_string(),
-                position: 5,
-            }),
-            Box::new(JsonError::InvalidNumber {
-                value: "1.2.3".to_string(),
-                position: 0,
-            }),
-            Box::new(JsonError::InvalidEscape {
-                char: 'q',
-                position: 2,
-            }),
-            Box::new(JsonError::InvalidUnicode {
-                sequence: "GHIJ".to_string(),
-                position: 4,
-            }),
-        ];
+        use std::error::Error;
 
-        for error in &errors {
-            // All variants implement std::error::Error, so .source() is callable
-            assert!(error.source().is_none());
-        }
+        let error = JsonError::UnexpectedToken {
+            expected: "value".to_string(),
+            found: "@".to_string(),
+            position: 0,
+        };
+        assert!(error.source().is_none());
+
+        let error = JsonError::UnexpectedEndOfInput {
+            expected: "closing quote".to_string(),
+            position: 5,
+        };
+        assert!(error.source().is_none());
+
+        let error = JsonError::InvalidNumber {
+            value: "1.2.3".to_string(),
+            position: 0,
+        };
+        assert!(error.source().is_none());
+
+        let error = JsonError::InvalidEscape {
+            char: 'q',
+            position: 2,
+        };
+        assert!(error.source().is_none());
+
+        let error = JsonError::InvalidUnicode {
+            sequence: "GHIJ".to_string(),
+            position: 4,
+        };
+        assert!(error.source().is_none());
     }
 }
