@@ -265,24 +265,23 @@ impl Tokenizer {
     }
 
     fn advance(&mut self) -> Option<char> {
-        if self.position < self.input.len() {
+        if self.is_at_end() {
+            None
+        } else {
             let ch = self.input[self.position];
             self.position += 1;
             Some(ch)
-        } else {
-            None
         }
     }
 
     fn peek(&self) -> Option<char> {
-        if self.position < self.input.len() {
-            Some(self.input[self.position])
-        } else {
+        if self.is_at_end() {
             None
+        } else {
+            Some(self.input[self.position])
         }
     }
 
-    #[allow(dead_code)]
     fn is_at_end(&self) -> bool {
         self.position >= self.input.len()
     }
