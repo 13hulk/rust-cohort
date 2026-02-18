@@ -72,112 +72,7 @@ impl Tokenizer {
 
                 // String: parse
                 '"' => {
-                    let string_start = self.position;
-                    self.advance(); // consume opening quote
-                    let mut s = String::new();
-                    loop {
-                        match self.peek() {
-                            Some('"') => {
-                                self.advance(); // closing quote
-                                break;
-                            }
-                            Some('\\') => {
-                                self.advance(); // consume backslash
-                                match self.peek() {
-                                    Some('"') => {
-                                        s.push('"');
-                                        self.advance();
-                                    }
-                                    Some('\\') => {
-                                        s.push('\\');
-                                        self.advance();
-                                    }
-                                    Some('/') => {
-                                        s.push('/');
-                                        self.advance();
-                                    }
-                                    Some('b') => {
-                                        s.push('\u{0008}');
-                                        self.advance();
-                                    }
-                                    Some('f') => {
-                                        s.push('\u{000C}');
-                                        self.advance();
-                                    }
-                                    Some('n') => {
-                                        s.push('\n');
-                                        self.advance();
-                                    }
-                                    Some('r') => {
-                                        s.push('\r');
-                                        self.advance();
-                                    }
-                                    Some('t') => {
-                                        s.push('\t');
-                                        self.advance();
-                                    }
-                                    Some('u') => {
-                                        self.advance(); // consume 'u'
-                                        let hex_start = self.position;
-                                        let mut hex_str = String::new();
-                                        for _ in 0..4 {
-                                            match self.peek() {
-                                                Some(h) => {
-                                                    hex_str.push(h);
-                                                    self.advance();
-                                                }
-                                                None => {
-                                                    return Err(JsonError::InvalidUnicode {
-                                                        sequence: hex_str,
-                                                        position: hex_start,
-                                                    });
-                                                }
-                                            }
-                                        }
-                                        match u32::from_str_radix(&hex_str, 16) {
-                                            Ok(code_point) => match char::from_u32(code_point) {
-                                                Some(unicode_char) => s.push(unicode_char),
-                                                None => {
-                                                    return Err(JsonError::InvalidUnicode {
-                                                        sequence: hex_str,
-                                                        position: hex_start,
-                                                    });
-                                                }
-                                            },
-                                            Err(_) => {
-                                                return Err(JsonError::InvalidUnicode {
-                                                    sequence: hex_str,
-                                                    position: hex_start,
-                                                });
-                                            }
-                                        }
-                                    }
-                                    Some(ch) => {
-                                        return Err(JsonError::InvalidEscape {
-                                            char: ch,
-                                            position: self.position,
-                                        });
-                                    }
-                                    None => {
-                                        return Err(JsonError::UnexpectedEndOfInput {
-                                            expected: "escape character".to_string(),
-                                            position: self.position,
-                                        });
-                                    }
-                                }
-                            }
-                            Some(c) => {
-                                s.push(c);
-                                self.advance();
-                            }
-                            None => {
-                                return Err(JsonError::UnexpectedEndOfInput {
-                                    expected: "closing quote".to_string(),
-                                    position: string_start,
-                                });
-                            }
-                        }
-                    }
+                    let s = self.parse_string()?;
                     tokens.push(Token::String(s));
                 }
 
@@ -258,6 +153,116 @@ impl Tokenizer {
         }
 
         Ok(tokens)
+    }
+
+    fn parse_string(&mut self) -> Result<String, JsonError> {
+        let string_start = self.position;
+        self.advance(); // consume opening quote
+        let mut s = String::new();
+        loop {
+            match self.peek() {
+                Some('"') => {
+                    self.advance();
+                    return Ok(s);
+                }
+                Some('\\') => {
+                    self.advance(); // consume backslash
+                    let ch = self.parse_escape_sequence()?;
+                    s.push(ch);
+                }
+                Some(c) => {
+                    s.push(c);
+                    self.advance();
+                }
+                None => {
+                    return Err(JsonError::UnexpectedEndOfInput {
+                        expected: "closing quote".to_string(),
+                        position: string_start,
+                    });
+                }
+            }
+        }
+    }
+
+    fn parse_escape_sequence(&mut self) -> Result<char, JsonError> {
+        match self.peek() {
+            Some('"') => {
+                self.advance();
+                Ok('"')
+            }
+            Some('\\') => {
+                self.advance();
+                Ok('\\')
+            }
+            Some('/') => {
+                self.advance();
+                Ok('/')
+            }
+            Some('b') => {
+                self.advance();
+                Ok('\u{0008}')
+            }
+            Some('f') => {
+                self.advance();
+                Ok('\u{000C}')
+            }
+            Some('n') => {
+                self.advance();
+                Ok('\n')
+            }
+            Some('r') => {
+                self.advance();
+                Ok('\r')
+            }
+            Some('t') => {
+                self.advance();
+                Ok('\t')
+            }
+            Some('u') => {
+                self.advance();
+                self.parse_unicode_escape()
+            }
+            Some(ch) => Err(JsonError::InvalidEscape {
+                char: ch,
+                position: self.position,
+            }),
+            None => Err(JsonError::UnexpectedEndOfInput {
+                expected: "escape character".to_string(),
+                position: self.position,
+            }),
+        }
+    }
+
+    fn parse_unicode_escape(&mut self) -> Result<char, JsonError> {
+        let hex_start = self.position;
+        let mut hex_str = String::new();
+        for _ in 0..4 {
+            match self.peek() {
+                Some(h) => {
+                    hex_str.push(h);
+                    self.advance();
+                }
+                None => {
+                    return Err(JsonError::InvalidUnicode {
+                        sequence: hex_str,
+                        position: hex_start,
+                    });
+                }
+            }
+        }
+        match u32::from_str_radix(&hex_str, 16) {
+            Ok(code_point) => match char::from_u32(code_point) {
+                Some(unicode_char) => Ok(unicode_char),
+                None => Err(JsonError::InvalidUnicode {
+                    sequence: hex_str,
+                    position: hex_start,
+                }),
+            },
+            Err(_) => Err(JsonError::InvalidUnicode {
+                sequence: hex_str,
+                position: hex_start,
+            }),
+        }
     }
 
     fn advance(&mut self) -> Option<char> {
