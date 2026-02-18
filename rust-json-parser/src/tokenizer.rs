@@ -78,31 +78,8 @@ impl Tokenizer {
 
                 // Keywords: parse true, false, null
                 't' | 'f' | 'n' => {
-                    let start_position = self.position;
-                    let mut word = String::new();
-                    // Collect: lowercase letters only
-                    while let Some(c) = self.peek() {
-                        match c {
-                            'a'..='z' => {
-                                word.push(c);
-                                self.advance();
-                            }
-                            _ => break, // non-letter: stop collecting
-                        }
-                    }
-                    // Match: keyword to token
-                    match word.as_str() {
-                        "true" => tokens.push(Token::Boolean(true)),
-                        "false" => tokens.push(Token::Boolean(false)),
-                        "null" => tokens.push(Token::Null),
-                        _ => {
-                            return Err(JsonError::UnexpectedToken {
-                                expected: "valid JSON token".to_string(),
-                                found: word,
-                                position: start_position,
-                            });
-                        }
-                    }
+                    let token = self.parse_keyword()?;
+                    tokens.push(token);
                 }
 
                 // Number: parse (starts with digit, minus sign, or decimal point)
@@ -231,6 +208,30 @@ impl Tokenizer {
             Err(_) => Err(JsonError::InvalidUnicode {
                 sequence: hex_str,
                 position: hex_start,
+            }),
+        }
+    }
+
+    fn parse_keyword(&mut self) -> Result<Token, JsonError> {
+        let start_position = self.position;
+        let mut word = String::new();
+        while let Some(c) = self.peek() {
+            match c {
+                'a'..='z' => {
+                    word.push(c);
+                    self.advance();
+                }
+                _ => break,
+            }
+        }
+        match word.as_str() {
+            "true" => Ok(Token::Boolean(true)),
+            "false" => Ok(Token::Boolean(false)),
+            "null" => Ok(Token::Null),
+            _ => Err(JsonError::UnexpectedToken {
+                expected: "valid JSON token".to_string(),
+                found: word,
+                position: start_position,
             }),
         }
     }
@@ -714,6 +715,34 @@ mod tests {
         let mut t = Tokenizer::new("ZZZZ");
         let result = t.parse_unicode_escape();
         assert!(matches!(result, Err(JsonError::InvalidUnicode { .. })));
+    }
+
+    #[test]
+    fn test_parse_keyword_true() -> Result<()> {
+        let mut t = Tokenizer::new("true");
+        assert_eq!(t.parse_keyword()?, Token::Boolean(true));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_keyword_false() -> Result<()> {
+        let mut t = Tokenizer::new("false");
+        assert_eq!(t.parse_keyword()?, Token::Boolean(false));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_keyword_null() -> Result<()> {
+        let mut t = Tokenizer::new("null");
+        assert_eq!(t.parse_keyword()?, Token::Null);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_keyword_invalid() {
+        let mut t = Tokenizer::new("trueblue");
+        let result = t.parse_keyword();
+        assert!(matches!(result, Err(JsonError::UnexpectedToken { .. })));
     }
 
     #[test]
