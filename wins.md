@@ -85,9 +85,40 @@ Anything you consider a win counts but even better if it's a result of your prog
 
 ## Week 04: 2026-02-09 - 2026-02-15
 
--
--
--
+### Full Recursive Descent JSON Parser
+- Implemented `parse_array()` and `parse_object()` with recursive descent -- the parser can now handle arbitrarily nested JSON structures
+- Refactored `parse()` into `parse_value()` for recursive dispatch: `parse_value()` checks `peek()` and delegates to `parse_array()`, `parse_object()`, or handles primitives directly
+- Added `Array(Vec<JsonValue>)` and `Object(HashMap<String, JsonValue>)` variants to `JsonValue` enum -- the data model is now complete for all 6 JSON types
+
+### Display Trait for Round-Trip Serialization
+- Implemented `Display` trait for `JsonValue` so any parsed value can be serialized back to a JSON string via `.to_string()`
+- Built `escape_string()` helper to handle special characters (`"`, `\`, `\n`, `\r`, `\t`) in string output
+- Whole numbers display cleanly: `42` not `42.0` (using `n.fract() == 0.0` check)
+- Round-trip works: `parse_json(input).to_string()` produces valid JSON that can be re-parsed to the same value
+
+### Accessor Methods and Convenience API
+- Added `as_array()`, `as_object()`, `get()`, and `get_index()` accessor methods for ergonomic value access
+- Re-introduced `parse_json()` as a convenience free function wrapping the struct constructor and parse call
+
+### Collections and Iterators in Practice
+- First real use of `Vec<T>` beyond token storage -- `Vec<JsonValue>` builds up array elements during parsing
+- First real use of `HashMap<K,V>` -- `HashMap<String, JsonValue>` stores object key-value pairs
+- Used `.iter().enumerate()` in Display for comma-separated array output, `for (key, value) in map` for objects
+
+### Recursive Types Without `Box<T>`
+- Discovered that `Vec` and `HashMap` provide heap indirection naturally, so `Box<T>` is not needed for recursive enum variants
+- The enum has a fixed stack size because `Vec` and `HashMap` are just pointer + length + capacity on the stack
+
+### Curriculum Compliance
+- Avoided `std::mem::discriminant()` (not confirmed in curriculum) -- used `matches!` macro instead
+- No closures used anywhere -- all iteration via `for` loops
+- No custom traits, no generics, no explicit lifetimes, no external crates
+- 159 tests passing (55 new), `make all` clean
+
+### Challenges and Learnings
+- HashMap ordering is nondeterministic -- learned to use `.contains()` for Display tests on objects instead of exact `assert_eq!`
+- Trailing comma detection requires checking for closing bracket/brace after consuming a comma, before attempting to parse the next value
+- Error messages use `format!("{:?}", token)` which shows Debug output -- not ideal for end users but sufficient for the curriculum scope
 
 ## Week 05: 2026-02-16 - 2026-02-22
 
