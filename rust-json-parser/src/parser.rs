@@ -43,16 +43,15 @@ impl JsonParser {
     }
 
     fn advance(&mut self) -> Option<Token> {
-        if self.current < self.tokens.len() {
+        if self.is_at_end() {
+            None
+        } else {
             let token = self.tokens[self.current].clone();
             self.current += 1;
             Some(token)
-        } else {
-            None
         }
     }
 
-    #[allow(dead_code)]
     fn is_at_end(&self) -> bool {
         self.current >= self.tokens.len()
     }
