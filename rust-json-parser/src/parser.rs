@@ -1,5 +1,7 @@
 //! JSON parser module for parsing JSON values.
 
+use std::collections::HashMap;
+
 use crate::error::JsonError;
 use crate::tokenizer::{Token, Tokenizer};
 use crate::value::JsonValue;
@@ -109,11 +111,90 @@ impl JsonParser {
     }
 
     fn parse_object(&mut self) -> Result<JsonValue, JsonError> {
-        Err(JsonError::UnexpectedToken {
-            expected: "JSON value".to_string(),
-            found: "{".to_string(),
-            position: self.current,
-        })
+        self.advance(); // consume opening '{'
+        let mut map: HashMap<String, JsonValue> = HashMap::new();
+
+        // Empty object case
+        if matches!(self.peek(), Some(Token::RightBrace)) {
+            self.advance(); // consume closing '}'
+            return Ok(JsonValue::Object(map));
+        }
+
+        loop {
+            // Expect a string key
+            let key = match self.advance() {
+                Some(Token::String(s)) => s,
+                Some(other) => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "string key".to_string(),
+                        found: format!("{:?}", other),
+                        position: self.current - 1,
+                    });
+                }
+                None => {
+                    return Err(JsonError::UnexpectedEndOfInput {
+                        expected: "string key".to_string(),
+                        position: self.current,
+                    });
+                }
+            };
+
+            // Expect a colon
+            match self.advance() {
+                Some(Token::Colon) => {}
+                Some(other) => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "colon".to_string(),
+                        found: format!("{:?}", other),
+                        position: self.current - 1,
+                    });
+                }
+                None => {
+                    return Err(JsonError::UnexpectedEndOfInput {
+                        expected: "colon".to_string(),
+                        position: self.current,
+                    });
+                }
+            }
+
+            // Parse the value
+            let value = self.parse_value()?;
+            map.insert(key, value);
+
+            // Check what follows the value
+            match self.peek() {
+                Some(Token::Comma) => {
+                    self.advance(); // consume comma
+                    // Check for trailing comma
+                    if matches!(self.peek(), Some(Token::RightBrace)) {
+                        return Err(JsonError::UnexpectedToken {
+                            expected: "string key".to_string(),
+                            found: "}".to_string(),
+                            position: self.current,
+                        });
+                    }
+                }
+                Some(Token::RightBrace) => {
+                    self.advance(); // consume closing '}'
+                    break;
+                }
+                Some(_) => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "comma or closing brace".to_string(),
+                        found: format!("{:?}", self.peek().unwrap()),
+                        position: self.current,
+                    });
+                }
+                None => {
+                    return Err(JsonError::UnexpectedEndOfInput {
+                        expected: "comma or closing brace".to_string(),
+                        position: self.current,
+                    });
+                }
+            }
+        }
+
+        Ok(JsonValue::Object(map))
     }
 
     fn advance(&mut self) -> Option<Token> {
@@ -607,11 +688,108 @@ mod tests {
         assert_eq!(result.get_index(5), None);
     }
 
-    // --- parse_object stub ---
+    // --- Object parsing ---
 
     #[test]
-    fn test_parse_object_stub_returns_error() {
-        let result = parse_json(r#"{"key": "value"}"#);
+    fn test_parse_empty_object() {
+        let result = parse_json("{}").unwrap();
+        assert_eq!(result, JsonValue::Object(HashMap::new()));
+    }
+
+    #[test]
+    fn test_parse_object_single_key() {
+        let result = parse_json(r#"{"key": "value"}"#).unwrap();
+        let mut expected = HashMap::new();
+        expected.insert("key".to_string(), JsonValue::String("value".to_string()));
+        assert_eq!(result, JsonValue::Object(expected));
+    }
+
+    #[test]
+    fn test_parse_object_multiple_keys() {
+        let result = parse_json(r#"{"name": "Alice", "age": 30}"#).unwrap();
+        assert_eq!(
+            result.get("name"),
+            Some(&JsonValue::String("Alice".to_string()))
+        );
+        assert_eq!(result.get("age"), Some(&JsonValue::Number(30.0)));
+    }
+
+    #[test]
+    fn test_parse_nested_object() {
+        let result = parse_json(r#"{"outer": {"inner": 1}}"#).unwrap();
+        let outer = result.get("outer").unwrap();
+        assert_eq!(outer.get("inner"), Some(&JsonValue::Number(1.0)));
+    }
+
+    #[test]
+    fn test_parse_array_in_object() {
+        let result = parse_json(r#"{"items": [1, 2, 3]}"#).unwrap();
+        let items = result.get("items").unwrap();
+        assert_eq!(
+            items,
+            &JsonValue::Array(vec![
+                JsonValue::Number(1.0),
+                JsonValue::Number(2.0),
+                JsonValue::Number(3.0),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_object_in_array() {
+        let result = parse_json(r#"[{"a": 1}, {"b": 2}]"#).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].get("a"), Some(&JsonValue::Number(1.0)));
+        assert_eq!(arr[1].get("b"), Some(&JsonValue::Number(2.0)));
+    }
+
+    #[test]
+    fn test_object_accessor() {
+        let result = parse_json(r#"{"a": 1, "b": 2, "c": 3}"#).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 3);
+    }
+
+    #[test]
+    fn test_object_get() {
+        let result = parse_json(r#"{"name": "Bob"}"#).unwrap();
+        assert_eq!(
+            result.get("name"),
+            Some(&JsonValue::String("Bob".to_string()))
+        );
+        assert_eq!(result.get("missing"), None);
+    }
+
+    // --- Object error cases ---
+
+    #[test]
+    fn test_error_unclosed_object() {
+        let result = parse_json(r#"{"key": 1"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_trailing_comma_object() {
+        let result = parse_json(r#"{"a": 1,}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_missing_colon() {
+        let result = parse_json(r#"{"key" 1}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_invalid_key() {
+        let result = parse_json(r#"{123: "value"}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_missing_comma_object() {
+        let result = parse_json(r#"{"a": 1 "b": 2}"#);
         assert!(result.is_err());
     }
 }
