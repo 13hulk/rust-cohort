@@ -606,4 +606,148 @@ mod tests {
             Err(JsonError::UnexpectedEndOfInput { .. })
         ));
     }
+
+    // Direct tests for extracted helper methods
+
+    #[test]
+    fn test_parse_string_simple() -> Result<()> {
+        let mut t = Tokenizer::new(r#""hello""#);
+        let s = t.parse_string()?;
+        assert_eq!(s, "hello");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_string_empty() -> Result<()> {
+        let mut t = Tokenizer::new(r#""""#);
+        let s = t.parse_string()?;
+        assert_eq!(s, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_string_with_escapes() -> Result<()> {
+        let mut t = Tokenizer::new(r#""line1\nline2""#);
+        let s = t.parse_string()?;
+        assert_eq!(s, "line1\nline2");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_string_unterminated() {
+        let mut t = Tokenizer::new(r#""no end"#);
+        let result = t.parse_string();
+        assert!(matches!(
+            result,
+            Err(JsonError::UnexpectedEndOfInput { .. })
+        ));
+    }
+
+    #[test]
+    fn test_parse_escape_sequence_basic() -> Result<()> {
+        let mut t = Tokenizer::new("n");
+        assert_eq!(t.parse_escape_sequence()?, '\n');
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_escape_sequence_tab() -> Result<()> {
+        let mut t = Tokenizer::new("t");
+        assert_eq!(t.parse_escape_sequence()?, '\t');
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_escape_sequence_quote() -> Result<()> {
+        let mut t = Tokenizer::new("\"");
+        assert_eq!(t.parse_escape_sequence()?, '"');
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_escape_sequence_backslash() -> Result<()> {
+        let mut t = Tokenizer::new("\\");
+        assert_eq!(t.parse_escape_sequence()?, '\\');
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_escape_sequence_invalid() {
+        let mut t = Tokenizer::new("x");
+        let result = t.parse_escape_sequence();
+        assert!(matches!(result, Err(JsonError::InvalidEscape { .. })));
+    }
+
+    #[test]
+    fn test_parse_escape_sequence_eof() {
+        let mut t = Tokenizer::new("");
+        let result = t.parse_escape_sequence();
+        assert!(matches!(
+            result,
+            Err(JsonError::UnexpectedEndOfInput { .. })
+        ));
+    }
+
+    #[test]
+    fn test_parse_unicode_escape_letter() -> Result<()> {
+        let mut t = Tokenizer::new("0041");
+        assert_eq!(t.parse_unicode_escape()?, 'A');
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_unicode_escape_accented() -> Result<()> {
+        let mut t = Tokenizer::new("00e9");
+        assert_eq!(t.parse_unicode_escape()?, '\u{00e9}');
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_unicode_escape_too_short() {
+        let mut t = Tokenizer::new("00");
+        let result = t.parse_unicode_escape();
+        assert!(matches!(result, Err(JsonError::InvalidUnicode { .. })));
+    }
+
+    #[test]
+    fn test_parse_unicode_escape_bad_hex() {
+        let mut t = Tokenizer::new("ZZZZ");
+        let result = t.parse_unicode_escape();
+        assert!(matches!(result, Err(JsonError::InvalidUnicode { .. })));
+    }
+
+    #[test]
+    fn test_parse_number_integer() -> Result<()> {
+        let mut t = Tokenizer::new("42");
+        assert_eq!(t.parse_number()?, 42.0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_number_negative() -> Result<()> {
+        let mut t = Tokenizer::new("-7");
+        assert_eq!(t.parse_number()?, -7.0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_number_decimal() -> Result<()> {
+        let mut t = Tokenizer::new("3.14");
+        assert_eq!(t.parse_number()?, 3.14);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_number_leading_dot() {
+        let mut t = Tokenizer::new(".5");
+        let result = t.parse_number();
+        assert!(matches!(result, Err(JsonError::UnexpectedToken { .. })));
+    }
+
+    #[test]
+    fn test_parse_number_minus_dot() {
+        let mut t = Tokenizer::new("-.5");
+        let result = t.parse_number();
+        assert!(matches!(result, Err(JsonError::UnexpectedToken { .. })));
+    }
 }
