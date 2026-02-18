@@ -49,6 +49,13 @@ Anything you consider a win counts but even better if it's a result of your prog
 
 ## Week 03: 2026-02-02 - 2026-02-08
 
+### Compiler Attributes: `#[allow(dead_code)]` and Code Quality
+- Initially added `#[allow(dead_code)]` on `is_at_end()` in both `tokenizer.rs` and `parser.rs` because the methods were written in anticipation of Week 4's recursive descent parsing but not yet called
+- Without the attribute, `cargo clippy -D warnings` (enforced by pre-commit hooks) would fail the build since it treats warnings as errors
+- During PR review, got feedback that `advance()` and `peek()` could use `is_at_end()` instead of inline `self.position < self.input.len()` checks
+- After making that change, `is_at_end()` was no longer dead code, so `#[allow(dead_code)]` was removed
+- Learning: `#[allow(dead_code)]` suppresses the "function is never used" compiler warning -- useful as a temporary measure, but it is better to find a way to actually use the function now rather than leaving dead code annotations around
+
 ### From Functions to Structs
 - Refactored both tokenizer and parser from free functions to struct-based designs
     - `Tokenizer` struct with `new(&str)`, `tokenize(&mut self)`, `peek(&self)`, `advance(&mut self)`
