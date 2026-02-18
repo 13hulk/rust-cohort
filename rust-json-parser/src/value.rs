@@ -42,6 +42,38 @@ impl JsonValue {
             _ => None,
         }
     }
+
+    /// Returns a reference to the array if this is an Array variant.
+    pub fn as_array(&self) -> Option<&Vec<JsonValue>> {
+        match self {
+            JsonValue::Array(arr) => Some(arr),
+            _ => None,
+        }
+    }
+
+    /// Returns a reference to the object if this is an Object variant.
+    pub fn as_object(&self) -> Option<&HashMap<String, JsonValue>> {
+        match self {
+            JsonValue::Object(obj) => Some(obj),
+            _ => None,
+        }
+    }
+
+    /// Returns a reference to the value at the given key if this is an Object variant.
+    pub fn get(&self, key: &str) -> Option<&JsonValue> {
+        match self {
+            JsonValue::Object(obj) => obj.get(key),
+            _ => None,
+        }
+    }
+
+    /// Returns a reference to the value at the given index if this is an Array variant.
+    pub fn get_index(&self, index: usize) -> Option<&JsonValue> {
+        match self {
+            JsonValue::Array(arr) => arr.get(index),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -129,6 +161,106 @@ mod tests {
         // Using is_some/is_none
         assert!(value.as_str().is_some());
         assert!(value.as_f64().is_none());
+    }
+
+    #[test]
+    fn test_as_array() {
+        let array_val = JsonValue::Array(vec![
+            JsonValue::Number(1.0),
+            JsonValue::Number(2.0),
+            JsonValue::Number(3.0),
+        ]);
+
+        let arr = array_val.as_array();
+        assert!(arr.is_some());
+        assert_eq!(arr.unwrap().len(), 3);
+        assert_eq!(arr.unwrap()[0], JsonValue::Number(1.0));
+        assert_eq!(arr.unwrap()[1], JsonValue::Number(2.0));
+        assert_eq!(arr.unwrap()[2], JsonValue::Number(3.0));
+
+        // Non-array variants return None
+        assert!(JsonValue::Null.as_array().is_none());
+        assert!(JsonValue::Boolean(true).as_array().is_none());
+        assert!(JsonValue::Number(42.0).as_array().is_none());
+        assert!(JsonValue::String("test".to_string()).as_array().is_none());
+    }
+
+    #[test]
+    fn test_as_object() {
+        let mut map = HashMap::new();
+        map.insert("name".to_string(), JsonValue::String("Alice".to_string()));
+        map.insert("age".to_string(), JsonValue::Number(30.0));
+        let object_val = JsonValue::Object(map);
+
+        let obj = object_val.as_object();
+        assert!(obj.is_some());
+        assert_eq!(obj.unwrap().len(), 2);
+        assert_eq!(
+            obj.unwrap().get("name"),
+            Some(&JsonValue::String("Alice".to_string()))
+        );
+        assert_eq!(obj.unwrap().get("age"), Some(&JsonValue::Number(30.0)));
+
+        // Non-object variants return None
+        assert!(JsonValue::Null.as_object().is_none());
+        assert!(JsonValue::Boolean(false).as_object().is_none());
+        assert!(JsonValue::Number(1.0).as_object().is_none());
+        assert!(JsonValue::String("test".to_string()).as_object().is_none());
+    }
+
+    #[test]
+    fn test_get() {
+        let mut map = HashMap::new();
+        map.insert("key1".to_string(), JsonValue::String("value1".to_string()));
+        map.insert("key2".to_string(), JsonValue::Boolean(true));
+        let object_val = JsonValue::Object(map);
+
+        // Existing keys return correct values
+        assert_eq!(
+            object_val.get("key1"),
+            Some(&JsonValue::String("value1".to_string()))
+        );
+        assert_eq!(object_val.get("key2"), Some(&JsonValue::Boolean(true)));
+
+        // Missing key returns None
+        assert_eq!(object_val.get("missing"), None);
+
+        // Non-object variants return None
+        assert_eq!(JsonValue::Null.get("key"), None);
+        assert_eq!(JsonValue::Number(42.0).get("key"), None);
+        assert_eq!(
+            JsonValue::Array(vec![JsonValue::Number(1.0)]).get("key"),
+            None
+        );
+    }
+
+    #[test]
+    fn test_get_index() {
+        let array_val = JsonValue::Array(vec![
+            JsonValue::String("first".to_string()),
+            JsonValue::Boolean(false),
+            JsonValue::Null,
+        ]);
+
+        // Valid indices return correct values
+        assert_eq!(
+            array_val.get_index(0),
+            Some(&JsonValue::String("first".to_string()))
+        );
+        assert_eq!(array_val.get_index(1), Some(&JsonValue::Boolean(false)));
+        assert_eq!(array_val.get_index(2), Some(&JsonValue::Null));
+
+        // Out-of-bounds index returns None
+        assert_eq!(array_val.get_index(3), None);
+        assert_eq!(array_val.get_index(99), None);
+
+        // Non-array variants return None
+        assert_eq!(JsonValue::Null.get_index(0), None);
+        assert_eq!(JsonValue::Number(42.0).get_index(0), None);
+
+        let mut map = HashMap::new();
+        map.insert("key".to_string(), JsonValue::Number(1.0));
+        assert_eq!(JsonValue::Object(map).get_index(0), None);
     }
 
     #[test]
