@@ -1,6 +1,7 @@
 //! JSON value types for parsed JSON data.
 
 use std::collections::HashMap;
+use std::fmt;
 
 /// Represents a parsed JSON value.
 #[derive(Debug, Clone, PartialEq)]
@@ -72,6 +73,61 @@ impl JsonValue {
         match self {
             JsonValue::Array(arr) => arr.get(index),
             _ => None,
+        }
+    }
+}
+
+/// Escapes special characters in a string for JSON output.
+fn escape_string(s: &str) -> String {
+    let mut result = String::new();
+    for ch in s.chars() {
+        match ch {
+            '"' => result.push_str("\\\""),
+            '\\' => result.push_str("\\\\"),
+            '\n' => result.push_str("\\n"),
+            '\r' => result.push_str("\\r"),
+            '\t' => result.push_str("\\t"),
+            _ => result.push(ch),
+        }
+    }
+    result
+}
+
+impl fmt::Display for JsonValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            JsonValue::Null => write!(f, "null"),
+            JsonValue::Boolean(b) => write!(f, "{}", b),
+            JsonValue::Number(n) => {
+                if n.fract() == 0.0 {
+                    write!(f, "{:.0}", n)
+                } else {
+                    write!(f, "{}", n)
+                }
+            }
+            JsonValue::String(s) => write!(f, "\"{}\"", escape_string(s)),
+            JsonValue::Array(arr) => {
+                write!(f, "[")?;
+                for (i, item) in arr.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ",")?;
+                    }
+                    write!(f, "{}", item)?;
+                }
+                write!(f, "]")
+            }
+            JsonValue::Object(map) => {
+                write!(f, "{{")?;
+                let mut first = true;
+                for (key, value) in map {
+                    if !first {
+                        write!(f, ",")?;
+                    }
+                    first = false;
+                    write!(f, "\"{}\":{}", escape_string(key), value)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -292,5 +348,56 @@ mod tests {
             None => -1,
         };
         assert_eq!(result, -1);
+    }
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::*;
+    use crate::parser::parse_json;
+
+    #[test]
+    fn test_display_primitives() {
+        assert_eq!(JsonValue::Null.to_string(), "null");
+        assert_eq!(JsonValue::Boolean(true).to_string(), "true");
+        assert_eq!(JsonValue::Boolean(false).to_string(), "false");
+        assert_eq!(JsonValue::Number(42.0).to_string(), "42");
+        assert_eq!(JsonValue::Number(3.14).to_string(), "3.14");
+        assert_eq!(
+            JsonValue::String("hello".to_string()).to_string(),
+            "\"hello\""
+        );
+    }
+
+    #[test]
+    fn test_display_array() {
+        let array = JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]);
+        assert_eq!(array.to_string(), "[1,2]");
+    }
+
+    #[test]
+    fn test_display_empty_containers() {
+        assert_eq!(JsonValue::Array(vec![]).to_string(), "[]");
+        assert_eq!(JsonValue::Object(HashMap::new()).to_string(), "{}");
+    }
+
+    #[test]
+    fn test_display_escape_string() {
+        let value = JsonValue::String("hello\nworld".to_string());
+        assert_eq!(value.to_string(), "\"hello\\nworld\"");
+    }
+
+    #[test]
+    fn test_display_escape_quotes() {
+        let value = JsonValue::String("say \"hi\"".to_string());
+        assert_eq!(value.to_string(), "\"say \\\"hi\\\"\"");
+    }
+
+    #[test]
+    fn test_display_nested() {
+        let result = parse_json(r#"{"arr": [1, 2]}"#).unwrap();
+        let output = result.to_string();
+        assert!(output.contains("\"arr\""));
+        assert!(output.contains("[1,2]"));
     }
 }
