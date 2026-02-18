@@ -201,31 +201,19 @@ mod tests {
             .unwrap()
             .parse()
             .unwrap();
-        if let JsonValue::String(s) = result {
-            assert!(s.contains('\n'));
-        } else {
-            panic!("Expected String value");
-        }
+        assert_eq!(result, JsonValue::String("hello\nworld".to_string()));
     }
 
     #[test]
     fn test_parse_string_with_tab() {
         let result = JsonParser::new(r#""col1\tcol2""#).unwrap().parse().unwrap();
-        if let JsonValue::String(s) = result {
-            assert!(s.contains('\t'));
-        } else {
-            panic!("Expected String value");
-        }
+        assert_eq!(result, JsonValue::String("col1\tcol2".to_string()));
     }
 
     #[test]
     fn test_parse_string_with_quotes() {
         let result = JsonParser::new(r#""say \"hi\"""#).unwrap().parse().unwrap();
-        if let JsonValue::String(s) = result {
-            assert!(s.contains('"'));
-        } else {
-            panic!("Expected String value");
-        }
+        assert_eq!(result, JsonValue::String("say \"hi\"".to_string()));
     }
 
     #[test]
@@ -240,13 +228,10 @@ mod tests {
             .unwrap()
             .parse()
             .unwrap();
-        if let JsonValue::String(s) = result {
-            assert!(s.contains('\n'));
-            assert!(s.contains('\t'));
-            assert!(s.contains('"'));
-        } else {
-            panic!("Expected String value");
-        }
+        assert_eq!(
+            result,
+            JsonValue::String("line1\nline2\t\"quoted\"".to_string())
+        );
     }
 
     #[test]
