@@ -107,38 +107,8 @@ impl Tokenizer {
 
                 // Number: parse (starts with digit, minus sign, or decimal point)
                 '0'..='9' | '-' | '.' => {
-                    let start_position = self.position;
-                    let mut num_str = String::new();
-                    // Collect: digits, decimal point, minus sign
-                    while let Some(c) = self.peek() {
-                        match c {
-                            '0'..='9' | '.' | '-' => {
-                                num_str.push(c);
-                                self.advance();
-                            }
-                            _ => break, // non-numeric char: stop collecting
-                        }
-                    }
-                    // Check for invalid number formats:
-                    // - ".5" (leading decimal without digit)
-                    // - "-.5" (minus followed by decimal without digit)
-                    if num_str.starts_with('.') || num_str.starts_with("-.") {
-                        return Err(JsonError::UnexpectedToken {
-                            expected: "valid JSON token".to_string(),
-                            found: num_str,
-                            position: start_position,
-                        });
-                    }
-                    // Convert: string to f64
-                    match num_str.parse::<f64>() {
-                        Ok(n) => tokens.push(Token::Number(n)),
-                        Err(_) => {
-                            return Err(JsonError::InvalidNumber {
-                                value: num_str,
-                                position: start_position,
-                            });
-                        }
-                    }
+                    let n = self.parse_number()?;
+                    tokens.push(Token::Number(n));
                 }
 
                 // Unknown: return error
@@ -261,6 +231,34 @@ impl Tokenizer {
             Err(_) => Err(JsonError::InvalidUnicode {
                 sequence: hex_str,
                 position: hex_start,
+            }),
+        }
+    }
+
+    fn parse_number(&mut self) -> Result<f64, JsonError> {
+        let start_position = self.position;
+        let mut num_str = String::new();
+        while let Some(c) = self.peek() {
+            match c {
+                '0'..='9' | '.' | '-' => {
+                    num_str.push(c);
+                    self.advance();
+                }
+                _ => break,
+            }
+        }
+        if num_str.starts_with('.') || num_str.starts_with("-.") {
+            return Err(JsonError::UnexpectedToken {
+                expected: "valid JSON token".to_string(),
+                found: num_str,
+                position: start_position,
+            });
+        }
+        match num_str.parse::<f64>() {
+            Ok(n) => Ok(n),
+            Err(_) => Err(JsonError::InvalidNumber {
+                value: num_str,
+                position: start_position,
             }),
         }
     }
