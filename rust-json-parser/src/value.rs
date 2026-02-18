@@ -1,5 +1,7 @@
 //! JSON value types for parsed JSON data.
 
+use std::collections::HashMap;
+
 /// Represents a parsed JSON value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonValue {
@@ -7,6 +9,8 @@ pub enum JsonValue {
     Boolean(bool),
     Number(f64),
     String(String),
+    Array(Vec<JsonValue>),
+    Object(HashMap<String, JsonValue>),
 }
 
 impl JsonValue {
