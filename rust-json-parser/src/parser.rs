@@ -1,8 +1,15 @@
-//! JSON parser module for parsing primitive values.
+//! JSON parser module for parsing JSON values.
+
+use std::collections::HashMap;
 
 use crate::error::JsonError;
 use crate::tokenizer::{Token, Tokenizer};
 use crate::value::JsonValue;
+
+/// Convenience function that tokenizes and parses a JSON input string.
+pub fn parse_json(input: &str) -> Result<JsonValue, JsonError> {
+    JsonParser::new(input)?.parse()
+}
 
 /// Holds tokens and current position for parsing.
 pub struct JsonParser {
@@ -18,28 +25,176 @@ impl JsonParser {
     }
 
     pub fn parse(&mut self) -> Result<JsonValue, JsonError> {
-        if self.tokens.is_empty() {
-            return Err(JsonError::UnexpectedEndOfInput {
-                expected: "JSON value".to_string(),
-                position: 0,
+        let value = self.parse_value()?;
+        if !self.is_at_end() {
+            let token = self.advance();
+            return Err(JsonError::UnexpectedToken {
+                expected: "end of input".to_string(),
+                found: format!("{:?}", token.unwrap_or(Token::Null)),
+                position: self.current - 1,
             });
         }
+        Ok(value)
+    }
 
-        match self.advance() {
-            Some(Token::String(s)) => Ok(JsonValue::String(s)),
-            Some(Token::Number(n)) => Ok(JsonValue::Number(n)),
-            Some(Token::Boolean(b)) => Ok(JsonValue::Boolean(b)),
-            Some(Token::Null) => Ok(JsonValue::Null),
-            Some(other) => Err(JsonError::UnexpectedToken {
-                expected: "primitive JSON value".to_string(),
-                found: format!("{:?}", other),
-                position: 0,
-            }),
-            None => Err(JsonError::UnexpectedEndOfInput {
-                expected: "JSON value".to_string(),
-                position: 0,
-            }),
+    fn parse_value(&mut self) -> Result<JsonValue, JsonError> {
+        match self.peek() {
+            Some(Token::LeftBracket) => self.parse_array(),
+            Some(Token::LeftBrace) => self.parse_object(),
+            _ => match self.advance() {
+                Some(Token::String(s)) => Ok(JsonValue::String(s)),
+                Some(Token::Number(n)) => Ok(JsonValue::Number(n)),
+                Some(Token::Boolean(b)) => Ok(JsonValue::Boolean(b)),
+                Some(Token::Null) => Ok(JsonValue::Null),
+                Some(other) => Err(JsonError::UnexpectedToken {
+                    expected: "JSON value".to_string(),
+                    found: format!("{:?}", other),
+                    position: self.current - 1,
+                }),
+                None => Err(JsonError::UnexpectedEndOfInput {
+                    expected: "JSON value".to_string(),
+                    position: self.current,
+                }),
+            },
         }
+    }
+
+    fn parse_array(&mut self) -> Result<JsonValue, JsonError> {
+        self.advance(); // consume opening '['
+        let mut elements: Vec<JsonValue> = Vec::new();
+
+        // Empty array case
+        if matches!(self.peek(), Some(Token::RightBracket)) {
+            self.advance(); // consume closing ']'
+            return Ok(JsonValue::Array(elements));
+        }
+
+        loop {
+            // Parse the next element
+            let value = self.parse_value()?;
+            elements.push(value);
+
+            // Check what follows the element
+            match self.peek() {
+                Some(Token::Comma) => {
+                    self.advance(); // consume comma
+                    // Check for trailing comma
+                    if matches!(self.peek(), Some(Token::RightBracket)) {
+                        return Err(JsonError::UnexpectedToken {
+                            expected: "JSON value".to_string(),
+                            found: "]".to_string(),
+                            position: self.current,
+                        });
+                    }
+                }
+                Some(Token::RightBracket) => {
+                    self.advance(); // consume closing ']'
+                    break;
+                }
+                Some(_) => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "comma or closing bracket".to_string(),
+                        found: format!("{:?}", self.peek().unwrap()),
+                        position: self.current,
+                    });
+                }
+                None => {
+                    return Err(JsonError::UnexpectedEndOfInput {
+                        expected: "comma or closing bracket".to_string(),
+                        position: self.current,
+                    });
+                }
+            }
+        }
+
+        Ok(JsonValue::Array(elements))
+    }
+
+    fn parse_object(&mut self) -> Result<JsonValue, JsonError> {
+        self.advance(); // consume opening '{'
+        let mut map: HashMap<String, JsonValue> = HashMap::new();
+
+        // Empty object case
+        if matches!(self.peek(), Some(Token::RightBrace)) {
+            self.advance(); // consume closing '}'
+            return Ok(JsonValue::Object(map));
+        }
+
+        loop {
+            // Expect a string key
+            let key = match self.advance() {
+                Some(Token::String(s)) => s,
+                Some(other) => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "string key".to_string(),
+                        found: format!("{:?}", other),
+                        position: self.current - 1,
+                    });
+                }
+                None => {
+                    return Err(JsonError::UnexpectedEndOfInput {
+                        expected: "string key".to_string(),
+                        position: self.current,
+                    });
+                }
+            };
+
+            // Expect a colon
+            match self.advance() {
+                Some(Token::Colon) => {}
+                Some(other) => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "colon".to_string(),
+                        found: format!("{:?}", other),
+                        position: self.current - 1,
+                    });
+                }
+                None => {
+                    return Err(JsonError::UnexpectedEndOfInput {
+                        expected: "colon".to_string(),
+                        position: self.current,
+                    });
+                }
+            }
+
+            // Parse the value
+            let value = self.parse_value()?;
+            map.insert(key, value);
+
+            // Check what follows the value
+            match self.peek() {
+                Some(Token::Comma) => {
+                    self.advance(); // consume comma
+                    // Check for trailing comma
+                    if matches!(self.peek(), Some(Token::RightBrace)) {
+                        return Err(JsonError::UnexpectedToken {
+                            expected: "string key".to_string(),
+                            found: "}".to_string(),
+                            position: self.current,
+                        });
+                    }
+                }
+                Some(Token::RightBrace) => {
+                    self.advance(); // consume closing '}'
+                    break;
+                }
+                Some(_) => {
+                    return Err(JsonError::UnexpectedToken {
+                        expected: "comma or closing brace".to_string(),
+                        found: format!("{:?}", self.peek().unwrap()),
+                        position: self.current,
+                    });
+                }
+                None => {
+                    return Err(JsonError::UnexpectedEndOfInput {
+                        expected: "comma or closing brace".to_string(),
+                        position: self.current,
+                    });
+                }
+            }
+        }
+
+        Ok(JsonValue::Object(map))
     }
 
     fn advance(&mut self) -> Option<Token> {
@@ -52,6 +207,14 @@ impl JsonParser {
         }
     }
 
+    fn peek(&self) -> Option<&Token> {
+        if self.is_at_end() {
+            None
+        } else {
+            Some(&self.tokens[self.current])
+        }
+    }
+
     fn is_at_end(&self) -> bool {
         self.current >= self.tokens.len()
     }
@@ -60,6 +223,28 @@ impl JsonParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- parse_json free function ---
+
+    #[test]
+    fn test_parse_json_string() {
+        let result = parse_json(r#""hello""#).unwrap();
+        assert_eq!(result, JsonValue::String("hello".to_string()));
+    }
+
+    #[test]
+    fn test_parse_json_number() {
+        let result = parse_json("42").unwrap();
+        assert_eq!(result, JsonValue::Number(42.0));
+    }
+
+    #[test]
+    fn test_parse_json_error() {
+        let result = parse_json("@");
+        assert!(result.is_err());
+    }
+
+    // --- Primitive parsing ---
 
     #[test]
     fn test_parse_string() {
@@ -180,8 +365,6 @@ mod tests {
         }
     }
 
-    // New tests
-
     #[test]
     fn test_parser_creation() {
         let parser = JsonParser::new("42");
@@ -277,5 +460,336 @@ mod tests {
             result,
             Err(JsonError::UnexpectedEndOfInput { .. })
         ));
+    }
+
+    // --- peek() helper method ---
+
+    #[test]
+    fn test_peek_returns_reference() {
+        let parser = JsonParser::new("42").unwrap();
+        let peeked = parser.peek();
+        assert_eq!(peeked, Some(&Token::Number(42.0)));
+    }
+
+    #[test]
+    fn test_peek_does_not_advance() {
+        let parser = JsonParser::new("42").unwrap();
+        let first = parser.peek();
+        let second = parser.peek();
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn test_peek_at_end() {
+        let mut parser = JsonParser::new("42").unwrap();
+        parser.advance();
+        assert_eq!(parser.peek(), None);
+    }
+
+    // --- Trailing tokens ---
+
+    #[test]
+    fn test_parse_rejects_trailing_tokens() {
+        let result = JsonParser::new("42 true").unwrap().parse();
+        assert!(result.is_err());
+        assert!(matches!(result, Err(JsonError::UnexpectedToken { .. })));
+    }
+
+    // --- Array parsing ---
+
+    #[test]
+    fn test_parse_empty_array() {
+        let result = parse_json("[]").unwrap();
+        assert_eq!(result, JsonValue::Array(vec![]));
+    }
+
+    #[test]
+    fn test_parse_array_single_element() {
+        let result = parse_json("[42]").unwrap();
+        assert_eq!(result, JsonValue::Array(vec![JsonValue::Number(42.0)]));
+    }
+
+    #[test]
+    fn test_parse_array_multiple_numbers() {
+        let result = parse_json("[1, 2, 3]").unwrap();
+        assert_eq!(
+            result,
+            JsonValue::Array(vec![
+                JsonValue::Number(1.0),
+                JsonValue::Number(2.0),
+                JsonValue::Number(3.0),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_array_mixed_types() {
+        let result = parse_json(r#"[1, "two", true, null]"#).unwrap();
+        assert_eq!(
+            result,
+            JsonValue::Array(vec![
+                JsonValue::Number(1.0),
+                JsonValue::String("two".to_string()),
+                JsonValue::Boolean(true),
+                JsonValue::Null,
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_array_with_whitespace() {
+        let result = parse_json("[ 1 , 2 , 3 ]").unwrap();
+        assert_eq!(
+            result,
+            JsonValue::Array(vec![
+                JsonValue::Number(1.0),
+                JsonValue::Number(2.0),
+                JsonValue::Number(3.0),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_nested_arrays() {
+        let result = parse_json("[[1, 2], [3, 4]]").unwrap();
+        assert_eq!(
+            result,
+            JsonValue::Array(vec![
+                JsonValue::Array(vec![JsonValue::Number(1.0), JsonValue::Number(2.0)]),
+                JsonValue::Array(vec![JsonValue::Number(3.0), JsonValue::Number(4.0)]),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_deeply_nested_arrays() {
+        let result = parse_json("[[[1]]]").unwrap();
+        assert_eq!(
+            result,
+            JsonValue::Array(vec![JsonValue::Array(vec![JsonValue::Array(vec![
+                JsonValue::Number(1.0)
+            ])])])
+        );
+    }
+
+    #[test]
+    fn test_parse_array_of_strings() {
+        let result = parse_json(r#"["a", "b", "c"]"#).unwrap();
+        assert_eq!(
+            result,
+            JsonValue::Array(vec![
+                JsonValue::String("a".to_string()),
+                JsonValue::String("b".to_string()),
+                JsonValue::String("c".to_string()),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_array_of_booleans() {
+        let result = parse_json("[true, false, true]").unwrap();
+        assert_eq!(
+            result,
+            JsonValue::Array(vec![
+                JsonValue::Boolean(true),
+                JsonValue::Boolean(false),
+                JsonValue::Boolean(true),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_array_with_null() {
+        let result = parse_json("[null, null]").unwrap();
+        assert_eq!(
+            result,
+            JsonValue::Array(vec![JsonValue::Null, JsonValue::Null])
+        );
+    }
+
+    #[test]
+    fn test_parse_array_single_null() {
+        let result = parse_json("[null]").unwrap();
+        assert_eq!(result, JsonValue::Array(vec![JsonValue::Null]));
+    }
+
+    #[test]
+    fn test_parse_array_nested_empty() {
+        let result = parse_json("[[], []]").unwrap();
+        assert_eq!(
+            result,
+            JsonValue::Array(vec![JsonValue::Array(vec![]), JsonValue::Array(vec![]),])
+        );
+    }
+
+    // --- Array error cases ---
+
+    #[test]
+    fn test_parse_array_unclosed() {
+        let result = parse_json("[1, 2");
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(JsonError::UnexpectedEndOfInput { .. })
+        ));
+    }
+
+    #[test]
+    fn test_parse_array_trailing_comma() {
+        let result = parse_json("[1, 2,]");
+        assert!(result.is_err());
+        assert!(matches!(result, Err(JsonError::UnexpectedToken { .. })));
+    }
+
+    #[test]
+    fn test_parse_array_missing_comma() {
+        let result = parse_json("[1 2]");
+        assert!(result.is_err());
+        assert!(matches!(result, Err(JsonError::UnexpectedToken { .. })));
+    }
+
+    #[test]
+    fn test_parse_array_leading_comma() {
+        let result = parse_json("[, 1]");
+        assert!(result.is_err());
+        assert!(matches!(result, Err(JsonError::UnexpectedToken { .. })));
+    }
+
+    #[test]
+    fn test_parse_array_double_comma() {
+        let result = parse_json("[1,, 2]");
+        assert!(result.is_err());
+        assert!(matches!(result, Err(JsonError::UnexpectedToken { .. })));
+    }
+
+    #[test]
+    fn test_parse_array_unclosed_nested() {
+        let result = parse_json("[[1, 2]");
+        assert!(result.is_err());
+    }
+
+    // --- Array with value helpers ---
+
+    #[test]
+    fn test_parse_array_as_array() {
+        let result = parse_json("[1, 2, 3]").unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0], JsonValue::Number(1.0));
+    }
+
+    #[test]
+    fn test_parse_array_get_index() {
+        let result = parse_json(r#"["a", "b", "c"]"#).unwrap();
+        assert_eq!(
+            result.get_index(1),
+            Some(&JsonValue::String("b".to_string()))
+        );
+        assert_eq!(result.get_index(5), None);
+    }
+
+    // --- Object parsing ---
+
+    #[test]
+    fn test_parse_empty_object() {
+        let result = parse_json("{}").unwrap();
+        assert_eq!(result, JsonValue::Object(HashMap::new()));
+    }
+
+    #[test]
+    fn test_parse_object_single_key() {
+        let result = parse_json(r#"{"key": "value"}"#).unwrap();
+        let mut expected = HashMap::new();
+        expected.insert("key".to_string(), JsonValue::String("value".to_string()));
+        assert_eq!(result, JsonValue::Object(expected));
+    }
+
+    #[test]
+    fn test_parse_object_multiple_keys() {
+        let result = parse_json(r#"{"name": "Alice", "age": 30}"#).unwrap();
+        assert_eq!(
+            result.get("name"),
+            Some(&JsonValue::String("Alice".to_string()))
+        );
+        assert_eq!(result.get("age"), Some(&JsonValue::Number(30.0)));
+    }
+
+    #[test]
+    fn test_parse_nested_object() {
+        let result = parse_json(r#"{"outer": {"inner": 1}}"#).unwrap();
+        let outer = result.get("outer").unwrap();
+        assert_eq!(outer.get("inner"), Some(&JsonValue::Number(1.0)));
+    }
+
+    #[test]
+    fn test_parse_array_in_object() {
+        let result = parse_json(r#"{"items": [1, 2, 3]}"#).unwrap();
+        let items = result.get("items").unwrap();
+        assert_eq!(
+            items,
+            &JsonValue::Array(vec![
+                JsonValue::Number(1.0),
+                JsonValue::Number(2.0),
+                JsonValue::Number(3.0),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_object_in_array() {
+        let result = parse_json(r#"[{"a": 1}, {"b": 2}]"#).unwrap();
+        let arr = result.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0].get("a"), Some(&JsonValue::Number(1.0)));
+        assert_eq!(arr[1].get("b"), Some(&JsonValue::Number(2.0)));
+    }
+
+    #[test]
+    fn test_object_accessor() {
+        let result = parse_json(r#"{"a": 1, "b": 2, "c": 3}"#).unwrap();
+        let obj = result.as_object().unwrap();
+        assert_eq!(obj.len(), 3);
+    }
+
+    #[test]
+    fn test_object_get() {
+        let result = parse_json(r#"{"name": "Bob"}"#).unwrap();
+        assert_eq!(
+            result.get("name"),
+            Some(&JsonValue::String("Bob".to_string()))
+        );
+        assert_eq!(result.get("missing"), None);
+    }
+
+    // --- Object error cases ---
+
+    #[test]
+    fn test_error_unclosed_object() {
+        let result = parse_json(r#"{"key": 1"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_trailing_comma_object() {
+        let result = parse_json(r#"{"a": 1,}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_missing_colon() {
+        let result = parse_json(r#"{"key" 1}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_invalid_key() {
+        let result = parse_json(r#"{123: "value"}"#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_missing_comma_object() {
+        let result = parse_json(r#"{"a": 1 "b": 2}"#);
+        assert!(result.is_err());
     }
 }
