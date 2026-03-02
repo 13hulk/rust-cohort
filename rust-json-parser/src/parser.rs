@@ -91,10 +91,10 @@ impl JsonParser {
                     self.advance(); // consume closing ']'
                     break;
                 }
-                Some(_) => {
+                Some(other) => {
                     return Err(JsonError::UnexpectedToken {
                         expected: "comma or closing bracket".to_string(),
-                        found: format!("{:?}", self.peek().unwrap()),
+                        found: format!("{:?}", other),
                         position: self.current,
                     });
                 }
@@ -178,10 +178,10 @@ impl JsonParser {
                     self.advance(); // consume closing '}'
                     break;
                 }
-                Some(_) => {
+                Some(other) => {
                     return Err(JsonError::UnexpectedToken {
                         expected: "comma or closing brace".to_string(),
-                        found: format!("{:?}", self.peek().unwrap()),
+                        found: format!("{:?}", other),
                         position: self.current,
                     });
                 }
