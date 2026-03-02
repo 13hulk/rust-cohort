@@ -6,10 +6,10 @@ Usage:
     echo '{"test": 123}' | python -m rust_json_parser
 """
 
-import sys
 import os.path
+import sys
 
-from rust_json_parser import parse_json, parse_json_file, dumps
+from rust_json_parser import dumps, parse_json, parse_json_file
 
 
 def main():
@@ -17,7 +17,10 @@ def main():
         # No argument provided, try reading from stdin
         data = sys.stdin.read()
         if not data.strip():
-            print("Usage: python -m rust_json_parser <json_string_or_file>", file=sys.stderr)
+            print(
+                "Usage: python -m rust_json_parser <json_string_or_file>",
+                file=sys.stderr,
+            )
             sys.exit(1)
         try:
             result = parse_json(data)
@@ -30,15 +33,12 @@ def main():
     arg = sys.argv[1]
 
     try:
-        if os.path.exists(arg):
-            result = parse_json_file(arg)
-        else:
-            result = parse_json(arg)
-        print(dumps(result, indent=2))
+        result = parse_json_file(arg) if os.path.exists(arg) else parse_json(arg)
+        print(dumps(result, indent=4))
     except ValueError as e:
         print(f"Parse error: {e}", file=sys.stderr)
         sys.exit(1)
-    except IOError as e:
+    except OSError as e:
         print(f"File error: {e}", file=sys.stderr)
         sys.exit(1)
 

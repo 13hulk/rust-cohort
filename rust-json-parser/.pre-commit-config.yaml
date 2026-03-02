@@ -14,3 +14,17 @@ repos:
         language: system
         types: [rust]
         pass_filenames: false
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --project rust-json-parser ruff format
+        language: system
+        types: [python]
+        pass_filenames: true
+
+      - id: ruff-lint
+        name: ruff lint
+        entry: uv run --project rust-json-parser ruff check --fix
+        language: system
+        types: [python]
+        pass_filenames: true
