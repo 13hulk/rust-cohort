@@ -59,10 +59,139 @@ fn parse_json_file(py: Python<'_>, path: &str) -> PyResult<PyObject> {
     Ok(value.into_pyobject(py)?.unbind())
 }
 
+/// Convert a Python object to a JsonValue.
+///
+/// Type check order matters: bool must come before numbers because
+/// Python's bool is a subclass of int (True == 1, False == 0).
+fn py_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<JsonValue> {
+    if obj.is_none() {
+        return Ok(JsonValue::Null);
+    }
+    if let Ok(b) = obj.extract::<bool>() {
+        return Ok(JsonValue::Boolean(b));
+    }
+    if let Ok(n) = obj.extract::<f64>() {
+        return Ok(JsonValue::Number(n));
+    }
+    if let Ok(s) = obj.extract::<String>() {
+        return Ok(JsonValue::String(s));
+    }
+    if let Ok(list) = obj.downcast::<PyList>() {
+        let mut items = Vec::new();
+        for item in list.iter() {
+            items.push(py_to_json_value(&item)?);
+        }
+        return Ok(JsonValue::Array(items));
+    }
+    if let Ok(dict) = obj.downcast::<PyDict>() {
+        let mut map = std::collections::HashMap::new();
+        for (key, value) in dict.iter() {
+            let key_str = key.extract::<String>()?;
+            map.insert(key_str, py_to_json_value(&value)?);
+        }
+        return Ok(JsonValue::Object(map));
+    }
+    Err(PyValueError::new_err(format!(
+        "unsupported type: {}",
+        obj.get_type().name()?
+    )))
+}
+
+/// Serialize a Python object to a JSON string.
+///
+/// If indent is None, produces compact output.
+/// If indent is Some(n), produces pretty-printed output with n spaces per level.
+#[pyfunction]
+#[pyo3(signature = (obj, indent=None))]
+fn dumps(obj: &Bound<'_, PyAny>, indent: Option<usize>) -> PyResult<String> {
+    let value = py_to_json_value(obj)?;
+    match indent {
+        None => Ok(value.to_string()),
+        Some(n) => Ok(pretty_print(&value, n, 0)),
+    }
+}
+
+/// Recursively format a JsonValue with indentation.
+fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
+    match value {
+        JsonValue::Null => "null".to_string(),
+        JsonValue::Boolean(b) => format!("{}", b),
+        JsonValue::Number(n) => {
+            if n.fract() == 0.0 {
+                format!("{:.0}", n)
+            } else {
+                format!("{}", n)
+            }
+        }
+        JsonValue::String(s) => {
+            let mut result = std::string::String::new();
+            result.push('"');
+            for ch in s.chars() {
+                match ch {
+                    '"' => result.push_str("\\\""),
+                    '\\' => result.push_str("\\\\"),
+                    '\n' => result.push_str("\\n"),
+                    '\r' => result.push_str("\\r"),
+                    '\t' => result.push_str("\\t"),
+                    _ => result.push(ch),
+                }
+            }
+            result.push('"');
+            result
+        }
+        JsonValue::Array(arr) => {
+            if arr.is_empty() {
+                return "[]".to_string();
+            }
+            let inner_indent = " ".repeat(indent_size * (depth + 1));
+            let outer_indent = " ".repeat(indent_size * depth);
+            let mut result = std::string::String::new();
+            result.push_str("[\n");
+            for (i, item) in arr.iter().enumerate() {
+                result.push_str(&inner_indent);
+                result.push_str(&pretty_print(item, indent_size, depth + 1));
+                if i < arr.len() - 1 {
+                    result.push(',');
+                }
+                result.push('\n');
+            }
+            result.push_str(&outer_indent);
+            result.push(']');
+            result
+        }
+        JsonValue::Object(map) => {
+            if map.is_empty() {
+                return "{}".to_string();
+            }
+            let inner_indent = " ".repeat(indent_size * (depth + 1));
+            let outer_indent = " ".repeat(indent_size * depth);
+            let mut result = std::string::String::new();
+            result.push_str("{\n");
+            let mut entries: Vec<(&std::string::String, &JsonValue)> = map.iter().collect();
+            entries.sort_by_key(|(k, _)| *k);
+            for (i, (key, value)) in entries.iter().enumerate() {
+                result.push_str(&inner_indent);
+                result.push('"');
+                result.push_str(key);
+                result.push_str("\": ");
+                result.push_str(&pretty_print(value, indent_size, depth + 1));
+                if i < entries.len() - 1 {
+                    result.push(',');
+                }
+                result.push('\n');
+            }
+            result.push_str(&outer_indent);
+            result.push('}');
+            result
+        }
+    }
+}
+
 /// Register all Python-callable functions in the module.
 #[pymodule]
 fn _rust_json_parser(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_json, m)?)?;
     m.add_function(wrap_pyfunction!(parse_json_file, m)?)?;
+    m.add_function(wrap_pyfunction!(dumps, m)?)?;
     Ok(())
 }
