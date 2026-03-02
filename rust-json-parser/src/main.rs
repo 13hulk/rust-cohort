@@ -1,138 +1,214 @@
-//! JSON parser demo showing tokenization, parsing, and value access.
+//! JSON parser demo showcasing all features.
 
-use rust_json_parser::parser::parse_json;
+use rust_json_parser::error::JsonError;
+use rust_json_parser::parser::{JsonParser, parse_json};
 use rust_json_parser::tokenizer::Tokenizer;
 
 fn main() {
-    // 1. Parse a complete JSON document with nested structures
-    println!("--- Parsing a Complete JSON Document ---\n");
-    let json_input = r#"{
-        "name": "Alice Johnson",
+    // 1. Parse a complex JSON document with all value types
+    println!("=== 1. Parsing a Complete JSON Document ===\n");
+    let input = r#"{
+        "name": "Alice",
         "age": 28,
-        "active": true,
         "score": 95.5,
+        "active": true,
         "nickname": null,
-        "tags": ["developer", "rust", "json"],
-        "address": {
-            "city": "Portland",
-            "state": "OR"
-        }
+        "tags": ["developer", "rust"],
+        "address": {"city": "Portland", "state": "OR"}
     }"#;
+    let value = parse_json(input).unwrap();
+    println!("Input:\n{}\n", input);
+    println!("Display output: {}\n", value);
 
-    println!("Input: {}\n", json_input);
+    // 2. Object field access with .get()
+    println!("=== 2. Object Field Access ===\n");
+    println!("  .get(\"name\")     => {:?}", value.get("name"));
+    println!("  .get(\"age\")      => {:?}", value.get("age"));
+    println!("  .get(\"active\")   => {:?}", value.get("active"));
+    println!("  .get(\"nickname\") => {:?}", value.get("nickname"));
+    println!("  .get(\"missing\")  => {:?}", value.get("missing"));
 
-    match parse_json(json_input) {
-        Ok(value) => {
-            // Display output via Display trait
-            println!("Display: {}\n", value);
+    // Nested access
+    let address = value.get("address").unwrap();
+    println!(
+        "  .get(\"address\").get(\"city\") => {:?}",
+        address.get("city")
+    );
 
-            // Access object fields with .get()
-            println!("--- Accessing Fields with .get() ---\n");
-            if let Some(name) = value.get("name") {
-                println!("  name     => {}", name);
-            }
-            if let Some(age) = value.get("age") {
-                println!("  age      => {}", age);
-            }
-            if let Some(active) = value.get("active") {
-                println!("  active   => {}", active);
-            }
-            if let Some(nickname) = value.get("nickname") {
-                println!("  nickname => {}", nickname);
-            }
-
-            // Access nested object
-            println!("\n--- Nested Object Access ---\n");
-            if let Some(address) = value.get("address") {
-                println!("  address  => {}", address);
-                if let Some(city) = address.get("city") {
-                    println!("  city     => {}", city);
-                }
-            }
-
-            // Access array elements with .get_index() and .as_array()
-            println!("\n--- Array Access ---\n");
-            if let Some(tags) = value.get("tags") {
-                println!("  tags     => {}", tags);
-                if let Some(arr) = tags.as_array() {
-                    println!("  count    => {}", arr.len());
-                }
-                if let Some(first) = tags.get_index(0) {
-                    println!("  first    => {}", first);
-                }
-                if let Some(last) = tags.get_index(2) {
-                    println!("  last     => {}", last);
-                }
-            }
-
-            // Access the full object via .as_object()
-            println!("\n--- Object Keys via .as_object() ---\n");
-            if let Some(obj) = value.as_object() {
-                println!("  total keys: {}", obj.len());
-            }
-
-            // Use accessor helpers for primitive extraction
-            println!("\n--- Primitive Accessors ---\n");
-            if let Some(age_val) = value.get("age") {
-                println!("  age as f64: {:?}", age_val.as_f64());
-            }
-            if let Some(name_val) = value.get("name") {
-                println!("  name as str: {:?}", name_val.as_str());
-            }
-            if let Some(active_val) = value.get("active") {
-                println!("  active as bool: {:?}", active_val.as_bool());
-            }
-            if let Some(nick_val) = value.get("nickname") {
-                println!("  nickname is_null: {}", nick_val.is_null());
-            }
+    // 3. Array access with .get_index() and .as_array()
+    println!("\n=== 3. Array Access ===\n");
+    let tags = value.get("tags").unwrap();
+    println!("  tags: {}", tags);
+    if let Some(arr) = tags.as_array() {
+        println!("  .as_array().len()  => {}", arr.len());
+        for (i, item) in arr.iter().enumerate() {
+            println!("  [{}] => {}", i, item);
         }
-        Err(e) => println!("Parse error: {}", e),
+    }
+    println!("  .get_index(0) => {:?}", tags.get_index(0));
+    println!("  .get_index(5) => {:?}", tags.get_index(5));
+
+    // 4. Primitive accessors — success and failure cases
+    println!("\n=== 4. Primitive Accessors ===\n");
+    let name_val = value.get("name").unwrap();
+    let age_val = value.get("age").unwrap();
+    let active_val = value.get("active").unwrap();
+    let null_val = value.get("nickname").unwrap();
+
+    println!("  String \"Alice\":");
+    println!("    .as_str()  => {:?}", name_val.as_str());
+    println!("    .as_f64()  => {:?}", name_val.as_f64());
+    println!("    .as_bool() => {:?}", name_val.as_bool());
+    println!("    .is_null() => {}", name_val.is_null());
+
+    println!("  Number 28:");
+    println!("    .as_f64()  => {:?}", age_val.as_f64());
+    println!("    .as_str()  => {:?}", age_val.as_str());
+
+    println!("  Boolean true:");
+    println!("    .as_bool() => {:?}", active_val.as_bool());
+    println!("    .as_f64()  => {:?}", active_val.as_f64());
+
+    println!("  Null:");
+    println!("    .is_null() => {}", null_val.is_null());
+    println!("    .as_str()  => {:?}", null_val.as_str());
+
+    // Calling object accessors on non-objects
+    println!("  String .get(\"key\")     => {:?}", name_val.get("key"));
+    println!("  Number .get_index(0)   => {:?}", age_val.get_index(0));
+    println!("  String .as_array()     => {:?}", name_val.as_array());
+    println!("  String .as_object()    => {:?}", name_val.as_object());
+
+    // 5. Display round-trip: parse -> to_string -> re-parse
+    println!("\n=== 5. Display Round-Trip ===\n");
+    let array_input = r#"[1,"two",true,null]"#;
+    let parsed = parse_json(array_input).unwrap();
+    let serialized = parsed.to_string();
+    let reparsed = parse_json(&serialized).unwrap();
+    println!("  Original:   {}", array_input);
+    println!("  Serialized: {}", serialized);
+    println!("  Re-parsed:  {}", reparsed);
+    println!("  Match: {}", parsed == reparsed);
+
+    // 6. Edge cases
+    println!("\n=== 6. Edge Cases ===\n");
+    let cases = [
+        ("Empty array", "[]"),
+        ("Empty object", "{}"),
+        ("Nested empty", r#"{"a": [], "b": {}}"#),
+        ("Deeply nested", "[[[1]]]"),
+        ("Single string", r#""hello""#),
+        ("Single number", "42"),
+        ("Single boolean", "true"),
+        ("Single null", "null"),
+        ("Negative number", "-3.14"),
+    ];
+    for (label, json) in &cases {
+        let result = parse_json(json).unwrap();
+        println!("  {:<16} {} => {}", label, json, result);
     }
 
-    // 2. Parse a JSON array of objects
-    println!("\n--- Parsing an Array of Objects ---\n");
-    let array_json = r#"[
-        {"id": 1, "name": "Alice"},
-        {"id": 2, "name": "Bob"},
-        {"id": 3, "name": "Charlie"}
-    ]"#;
-    println!("Input: {}\n", array_json);
-
-    match parse_json(array_json) {
-        Ok(value) => {
-            println!("Display: {}\n", value);
-            if let Some(arr) = value.as_array() {
-                for (i, item) in arr.iter().enumerate() {
-                    if let Some(name) = item.get("name") {
-                        println!("  [{}] name => {}", i, name);
-                    }
-                }
-            }
-        }
-        Err(e) => println!("Parse error: {}", e),
+    // 7. Escape sequences
+    println!("\n=== 7. Escape Sequences ===\n");
+    let escape_input = r#"{"tab": "a\tb", "newline": "a\nb", "quote": "a\"b", "backslash": "a\\b", "unicode": "\u0041\u0042\u0043"}"#;
+    let escaped = parse_json(escape_input).unwrap();
+    println!("  Input: {}", escape_input);
+    if let Some(tab) = escaped.get("tab") {
+        println!(
+            "  tab:       {:?} (Display: {})",
+            tab.as_str().unwrap(),
+            tab
+        );
+    }
+    if let Some(nl) = escaped.get("newline") {
+        println!("  newline:   {:?} (Display: {})", nl.as_str().unwrap(), nl);
+    }
+    if let Some(q) = escaped.get("quote") {
+        println!("  quote:     {:?} (Display: {})", q.as_str().unwrap(), q);
+    }
+    if let Some(bs) = escaped.get("backslash") {
+        println!("  backslash: {:?} (Display: {})", bs.as_str().unwrap(), bs);
+    }
+    if let Some(uni) = escaped.get("unicode") {
+        println!(
+            "  unicode:   {:?} (Display: {})",
+            uni.as_str().unwrap(),
+            uni
+        );
     }
 
-    // 3. Tokenize a JSON document to show the token stream
-    println!("\n--- Tokenizing JSON ---\n");
-    let token_input = r#"{"items": [1, 2], "ok": true}"#;
-    println!("Input: {}\n", token_input);
-    println!("Tokens:");
+    // 8. Tokenization
+    println!("\n=== 8. Tokenization ===\n");
+    let token_input = r#"{"items": [1, true], "ok": null}"#;
+    println!("  Input: {}\n  Tokens:", token_input);
     match Tokenizer::new(token_input).tokenize() {
         Ok(tokens) => {
             for token in &tokens {
-                println!("  {:?}", token);
+                println!("    {:?}", token);
             }
+            println!("  Total: {} tokens", tokens.len());
         }
-        Err(e) => println!("Tokenize error: {}", e),
+        Err(e) => println!("  Error: {}", e),
     }
 
-    // 4. Python bindings are also available
-    println!("\n--- Python Bindings ---\n");
-    println!("This parser is also available as a Python package via PyO3.");
-    println!("Install with: maturin develop");
-    println!("Usage:");
-    println!("  import rust_json_parser as rjp");
-    println!("  data = rjp.parse_json('{{\"key\": \"value\"}}')");
-    println!("  print(rjp.dumps(data, indent=2))");
-    println!("  python -m rust_json_parser data.json");
+    // 9. JsonParser struct API (step-by-step)
+    println!("\n=== 9. JsonParser Struct API ===\n");
+    let step_input = r#"{"method": "struct"}"#;
+    println!("  Input: {}", step_input);
+    match JsonParser::new(step_input) {
+        Ok(mut parser) => match parser.parse() {
+            Ok(val) => println!("  Result: {}", val),
+            Err(e) => println!("  Parse error: {}", e),
+        },
+        Err(e) => println!("  Tokenize error: {}", e),
+    }
+
+    // Compare with convenience function
+    let conv_result = parse_json(step_input).unwrap();
+    println!("  parse_json() gives same result: {}", conv_result);
+
+    // 10. Error handling
+    println!("\n=== 10. Error Handling ===\n");
+    let error_cases: Vec<(&str, &str)> = Vec::from([
+        ("Empty input", ""),
+        ("Invalid token", "@bad"),
+        ("Unclosed string", r#""unterminated"#),
+        ("Unclosed array", "[1, 2"),
+        ("Trailing comma", "[1, 2,]"),
+        ("Missing colon", r#"{"key" "value"}"#),
+        ("Extra tokens", r#"true false"#),
+    ]);
+    for (label, json) in error_cases.iter() {
+        match parse_json(json) {
+            Ok(_) => println!("  {:<18} => unexpectedly succeeded", label),
+            Err(e) => println!("  {:<18} => {}", label, e),
+        }
+    }
+
+    // Show error variant matching
+    println!("\n  Pattern matching on JsonError:");
+    match parse_json("@") {
+        Err(JsonError::UnexpectedToken {
+            expected,
+            found,
+            position,
+        }) => {
+            println!(
+                "    UnexpectedToken {{ expected: {:?}, found: {:?}, position: {} }}",
+                expected, found, position
+            );
+        }
+        other => println!("    Unexpected: {:?}", other),
+    }
+
+    // 11. Python bindings
+    println!("\n=== 11. Python Bindings ===\n");
+    println!("  This parser is also available as a Python package via PyO3.");
+    println!("  Build:   make python-build");
+    println!("  Test:    make python-test");
+    println!("  Usage:");
+    println!("    import rust_json_parser as rjp");
+    println!("    data = rjp.parse_json('{{\"key\": \"value\"}}')");
+    println!("    print(rjp.dumps(data, indent=2))");
+    println!("    python -m rust_json_parser data.json");
 }
