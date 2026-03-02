@@ -5,6 +5,9 @@ pub mod parser;
 pub mod tokenizer;
 pub mod value;
 
+#[cfg(feature = "python")]
+mod python_bindings;
+
 #[cfg(test)]
 mod integration_tests {
     use crate::error::JsonError;
