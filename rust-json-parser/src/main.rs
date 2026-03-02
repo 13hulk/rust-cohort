@@ -125,4 +125,14 @@ fn main() {
         }
         Err(e) => println!("Tokenize error: {}", e),
     }
+
+    // 4. Python bindings are also available
+    println!("\n--- Python Bindings ---\n");
+    println!("This parser is also available as a Python package via PyO3.");
+    println!("Install with: maturin develop");
+    println!("Usage:");
+    println!("  import rust_json_parser as rjp");
+    println!("  data = rjp.parse_json('{{\"key\": \"value\"}}')");
+    println!("  print(rjp.dumps(data, indent=2))");
+    println!("  python -m rust_json_parser data.json");
 }
