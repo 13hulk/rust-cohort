@@ -122,9 +122,45 @@ Anything you consider a win counts but even better if it's a result of your prog
 
 ## Week 05: 2026-02-16 - 2026-02-22
 
--
--
--
+### Cross-Language Integration with PyO3
+- Exposed the Rust JSON parser to Python as a native extension module using PyO3
+- Implemented bidirectional type conversion between Rust's `JsonValue` and Python native types (dict, list, str, float, bool, None)
+- Built a complete Python package installable via `maturin develop` with `parse_json()`, `parse_json_file()`, and `dumps()` functions
+
+### Understanding FFI and the GIL
+- Learned how PyO3 bridges Rust's static type system with Python's dynamic types through the `IntoPyObject` trait
+- Understood the role of `Python<'py>` token as proof of GIL ownership -- Rust's way of ensuring thread-safe access to Python objects
+- Used `Bound<'py, T>` as the primary smart pointer for GIL-bound Python objects
+
+### Error Handling Across Language Boundaries
+- Implemented `From<JsonError> for PyErr` to convert Rust errors to Python exceptions automatically via the `?` operator
+- Parsing errors become `ValueError`, file I/O errors become `IOError` -- familiar Python exceptions for Python developers
+- Discovered that PyO3 provides automatic conversion for `std::io::Error` to Python's `IOError` -- no manual mapping needed
+
+### Python-to-Rust Type Conversion Gotcha
+- Learned that Python's `bool` is a subclass of `int` (`True == 1`, `False == 0`)
+- Must check `extract::<bool>()` before `extract::<f64>()` to avoid silently converting booleans to numbers
+- This is a real-world FFI pitfall that would be easy to miss without understanding both type systems
+
+### Build System Configuration
+- Configured dual crate-type (`cdylib` + `rlib`) for building both a Python-loadable dynamic library and a regular Rust library
+- Set up feature flags (`default = ["python"]`, `python = ["pyo3"]`) for conditional compilation
+- Used `--no-default-features` in Makefile targets to run Rust tests without Python linker dependency
+- PyO3 0.24 (curriculum version) did not support Python 3.14 -- upgraded to 0.25 to match the installed Python version
+
+### Pretty-Printing and Serialization
+- Implemented `dumps()` with optional `indent` parameter, mirroring Python's `json.dumps()` API
+- Built recursive `pretty_print()` helper that sorts object keys for deterministic output
+- Used `#[pyo3(signature = (obj, indent=None))]` to expose optional keyword arguments to Python
+
+### CLI Tool
+- Created `__main__.py` enabling `python -m rust_json_parser` as a command-line tool
+- Supports JSON file paths, inline JSON strings, and stdin piping -- follows the same pattern as `python -m json.tool`
+
+### Testing
+- 159 Rust tests (unchanged from Week 4 baseline) + 11 new Python integration tests
+- Python tests cover: basic parsing, type conversions, error handling, serialization
+- 7 commits on week5 branch, all focused and atomic
 
 ## Week 06: 2026-02-23 - 2026-03-01
 
