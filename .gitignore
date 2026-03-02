@@ -385,3 +385,4 @@ sandbox/
  # Rust build
 /target/
 **/target/
+*.dSYM/
