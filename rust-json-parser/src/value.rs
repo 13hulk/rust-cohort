@@ -77,20 +77,72 @@ impl JsonValue {
     }
 }
 
-/// Escapes special characters in a string for JSON output.
-fn escape_string(s: &str) -> String {
-    let mut result = String::new();
-    for ch in s.chars() {
-        match ch {
-            '"' => result.push_str("\\\""),
-            '\\' => result.push_str("\\\\"),
-            '\n' => result.push_str("\\n"),
-            '\r' => result.push_str("\\r"),
-            '\t' => result.push_str("\\t"),
-            _ => result.push(ch),
+/// Trait for converting a value into its JSON string representation.
+trait JsonFormat {
+    fn to_json_string(&self) -> String;
+}
+
+impl JsonFormat for f64 {
+    fn to_json_string(&self) -> String {
+        if self.fract() == 0.0 {
+            format!("{:.0}", self)
+        } else {
+            format!("{}", self)
         }
     }
-    result
+}
+
+impl JsonFormat for String {
+    fn to_json_string(&self) -> String {
+        let mut result = String::new();
+        result.push('"');
+        for ch in self.chars() {
+            match ch {
+                '"' => result.push_str("\\\""),
+                '\\' => result.push_str("\\\\"),
+                '\n' => result.push_str("\\n"),
+                '\r' => result.push_str("\\r"),
+                '\t' => result.push_str("\\t"),
+                _ => result.push(ch),
+            }
+        }
+        result.push('"');
+        result
+    }
+}
+
+impl JsonFormat for [JsonValue] {
+    fn to_json_string(&self) -> String {
+        let mut result = String::new();
+        result.push('[');
+        for (i, item) in self.iter().enumerate() {
+            if i > 0 {
+                result.push(',');
+            }
+            result.push_str(&item.to_string());
+        }
+        result.push(']');
+        result
+    }
+}
+
+impl JsonFormat for HashMap<String, JsonValue> {
+    fn to_json_string(&self) -> String {
+        let mut result = String::new();
+        result.push('{');
+        let mut first = true;
+        for (key, value) in self {
+            if !first {
+                result.push(',');
+            }
+            first = false;
+            result.push_str(&key.to_json_string());
+            result.push(':');
+            result.push_str(&value.to_string());
+        }
+        result.push('}');
+        result
+    }
 }
 
 impl fmt::Display for JsonValue {
@@ -98,36 +150,10 @@ impl fmt::Display for JsonValue {
         match self {
             JsonValue::Null => write!(f, "null"),
             JsonValue::Boolean(b) => write!(f, "{}", b),
-            JsonValue::Number(n) => {
-                if n.fract() == 0.0 {
-                    write!(f, "{:.0}", n)
-                } else {
-                    write!(f, "{}", n)
-                }
-            }
-            JsonValue::String(s) => write!(f, "\"{}\"", escape_string(s)),
-            JsonValue::Array(arr) => {
-                write!(f, "[")?;
-                for (i, item) in arr.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ",")?;
-                    }
-                    write!(f, "{}", item)?;
-                }
-                write!(f, "]")
-            }
-            JsonValue::Object(map) => {
-                write!(f, "{{")?;
-                let mut first = true;
-                for (key, value) in map {
-                    if !first {
-                        write!(f, ",")?;
-                    }
-                    first = false;
-                    write!(f, "\"{}\":{}", escape_string(key), value)?;
-                }
-                write!(f, "}}")
-            }
+            JsonValue::Number(n) => write!(f, "{}", n.to_json_string()),
+            JsonValue::String(s) => write!(f, "{}", s.to_json_string()),
+            JsonValue::Array(arr) => write!(f, "{}", arr.to_json_string()),
+            JsonValue::Object(map) => write!(f, "{}", map.to_json_string()),
         }
     }
 }
