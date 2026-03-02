@@ -43,3 +43,26 @@ impl From<JsonError> for PyErr {
         PyValueError::new_err(err.to_string())
     }
 }
+
+/// Parse a JSON string and return a Python object.
+#[pyfunction]
+fn parse_json(py: Python<'_>, input: &str) -> PyResult<PyObject> {
+    let value = crate::parser::JsonParser::new(input)?.parse()?;
+    Ok(value.into_pyobject(py)?.unbind())
+}
+
+/// Parse a JSON file and return a Python object.
+#[pyfunction]
+fn parse_json_file(py: Python<'_>, path: &str) -> PyResult<PyObject> {
+    let contents = std::fs::read_to_string(path)?;
+    let value = crate::parser::JsonParser::new(&contents)?.parse()?;
+    Ok(value.into_pyobject(py)?.unbind())
+}
+
+/// Register all Python-callable functions in the module.
+#[pymodule]
+fn _rust_json_parser(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(parse_json, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_json_file, m)?)?;
+    Ok(())
+}
