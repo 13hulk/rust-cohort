@@ -17,7 +17,8 @@ class TestBasicParsing:
 
     def test_parse_all_json_types(self):
         result = parse_json(
-            '{"str": "hello", "num": 42, "bool": true, "null": null, "arr": [1,2], "obj": {}}'
+            '{"str": "hello", "num": 42, "bool": true,'
+            ' "null": null, "arr": [1,2], "obj": {}}'
         )
         assert result["str"] == "hello"
         assert result["num"] == 42.0
