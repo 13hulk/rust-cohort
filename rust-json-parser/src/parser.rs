@@ -30,7 +30,10 @@ impl JsonParser {
             let token = self.advance();
             return Err(JsonError::UnexpectedToken {
                 expected: "end of input".to_string(),
-                found: format!("{:?}", token.unwrap_or(Token::Null)),
+                found: match token {
+                    Some(t) => format!("{:?}", t),
+                    None => "<no token>".to_string(),
+                },
                 position: self.current - 1,
             });
         }
