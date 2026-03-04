@@ -1,26 +1,109 @@
-//! JSON value types for parsed JSON data.
+//! JSON value types and accessor methods for parsed JSON data.
+//!
+//! This module provides the [`JsonValue`] enum, which represents the six
+//! fundamental JSON types: null, booleans, numbers, strings, arrays, and
+//! objects. After parsing JSON text with [`crate::parser::parse_json`],
+//! the result is a tree of `JsonValue` nodes that can be inspected using
+//! accessor methods like [`JsonValue::as_str`], [`JsonValue::get`], and
+//! [`JsonValue::get_index`].
 
 use std::collections::HashMap;
 use std::fmt;
 
 /// Represents a parsed JSON value.
+///
+/// `JsonValue` is an enum with six variants corresponding to the six
+/// JSON types defined by RFC 8259: null, boolean, number, string, array,
+/// and object. Values are produced by the parser and can be inspected
+/// using pattern matching or the provided accessor methods.
+///
+/// # Examples
+///
+/// ```
+/// use rust_json_parser::parser::parse_json;
+/// use rust_json_parser::value::JsonValue;
+///
+/// let value = parse_json(r#"{"name": "Alice", "age": 30}"#)?;
+/// match value {
+///     JsonValue::Object(ref map) => assert!(map.contains_key("name")),
+///     _ => panic!("Expected object"),
+/// }
+/// # Ok::<(), rust_json_parser::error::JsonError>(())
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonValue {
+    /// Represents JSON `null`.
+    ///
+    /// This variant has no associated data. Use [`JsonValue::is_null`] to
+    /// check whether a value is null without pattern matching.
     Null,
+    /// Represents a JSON boolean (`true` or `false`).
+    ///
+    /// The inner `bool` holds the boolean value. Use [`JsonValue::as_bool`]
+    /// to extract it as an `Option<bool>`.
     Boolean(bool),
+    /// Represents a JSON number, stored as `f64`.
+    ///
+    /// All JSON numbers (integers and decimals) are stored as 64-bit
+    /// floating point values. Use [`JsonValue::as_f64`] to extract the
+    /// numeric value as an `Option<f64>`.
     Number(f64),
+    /// Represents a JSON string.
+    ///
+    /// The inner `String` holds the decoded string content with all
+    /// escape sequences already resolved. Use [`JsonValue::as_str`] to
+    /// borrow the string as an `Option<&str>`.
     String(String),
+    /// Represents a JSON array of values.
+    ///
+    /// The inner `Vec<JsonValue>` holds the ordered elements of the array.
+    /// Use [`JsonValue::as_array`] to borrow the vector, or
+    /// [`JsonValue::get_index`] to access an element by position.
     Array(Vec<JsonValue>),
+    /// Represents a JSON object mapping string keys to values.
+    ///
+    /// The inner `HashMap<String, JsonValue>` holds the key-value pairs.
+    /// Use [`JsonValue::as_object`] to borrow the map, or
+    /// [`JsonValue::get`] to look up a value by key.
     Object(HashMap<String, JsonValue>),
 }
 
 impl JsonValue {
-    /// Returns true if this value is null.
+    /// Returns `true` if this value is `JsonValue::Null`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::parse_json;
+    ///
+    /// let value = parse_json("null")?;
+    /// assert!(value.is_null());
+    ///
+    /// let number = parse_json("42")?;
+    /// assert!(!number.is_null());
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
     pub fn is_null(&self) -> bool {
         matches!(self, JsonValue::Null)
     }
 
-    /// Returns the string value if this is a String variant.
+    /// Returns the string value if this is a `JsonValue::String`.
+    ///
+    /// Returns `Some(&str)` for string values and `None` for all other
+    /// variants.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::parse_json;
+    ///
+    /// let value = parse_json(r#""hello""#)?;
+    /// assert_eq!(value.as_str(), Some("hello"));
+    ///
+    /// let number = parse_json("42")?;
+    /// assert_eq!(number.as_str(), None);
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
     pub fn as_str(&self) -> Option<&str> {
         match self {
             JsonValue::String(s) => Some(s),
@@ -28,7 +111,23 @@ impl JsonValue {
         }
     }
 
-    /// Returns the numeric value if this is a Number variant.
+    /// Returns the numeric value if this is a `JsonValue::Number`.
+    ///
+    /// Returns `Some(f64)` for number values and `None` for all other
+    /// variants.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::parse_json;
+    ///
+    /// let value = parse_json("3.14")?;
+    /// assert_eq!(value.as_f64(), Some(3.14));
+    ///
+    /// let text = parse_json(r#""not a number""#)?;
+    /// assert_eq!(text.as_f64(), None);
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             JsonValue::Number(n) => Some(*n),
@@ -36,7 +135,23 @@ impl JsonValue {
         }
     }
 
-    /// Returns the boolean value if this is a Boolean variant.
+    /// Returns the boolean value if this is a `JsonValue::Boolean`.
+    ///
+    /// Returns `Some(bool)` for boolean values and `None` for all other
+    /// variants.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::parse_json;
+    ///
+    /// let value = parse_json("true")?;
+    /// assert_eq!(value.as_bool(), Some(true));
+    ///
+    /// let null = parse_json("null")?;
+    /// assert_eq!(null.as_bool(), None);
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             JsonValue::Boolean(b) => Some(*b),
@@ -44,7 +159,24 @@ impl JsonValue {
         }
     }
 
-    /// Returns a reference to the array if this is an Array variant.
+    /// Returns a reference to the inner vector if this is a `JsonValue::Array`.
+    ///
+    /// Returns `Some(&Vec<JsonValue>)` for array values and `None` for
+    /// all other variants.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::parse_json;
+    ///
+    /// let value = parse_json("[1, 2, 3]")?;
+    /// let arr = value.as_array().unwrap();
+    /// assert_eq!(arr.len(), 3);
+    ///
+    /// let text = parse_json(r#""not an array""#)?;
+    /// assert!(text.as_array().is_none());
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
     pub fn as_array(&self) -> Option<&Vec<JsonValue>> {
         match self {
             JsonValue::Array(arr) => Some(arr),
@@ -52,7 +184,25 @@ impl JsonValue {
         }
     }
 
-    /// Returns a reference to the object if this is an Object variant.
+    /// Returns a reference to the inner map if this is a `JsonValue::Object`.
+    ///
+    /// Returns `Some(&HashMap<String, JsonValue>)` for object values and
+    /// `None` for all other variants.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::parse_json;
+    ///
+    /// let value = parse_json(r#"{"name": "Alice", "age": 30}"#)?;
+    /// let obj = value.as_object().unwrap();
+    /// assert_eq!(obj.len(), 2);
+    /// assert!(obj.contains_key("name"));
+    ///
+    /// let number = parse_json("42")?;
+    /// assert!(number.as_object().is_none());
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
     pub fn as_object(&self) -> Option<&HashMap<String, JsonValue>> {
         match self {
             JsonValue::Object(obj) => Some(obj),
@@ -60,7 +210,24 @@ impl JsonValue {
         }
     }
 
-    /// Returns a reference to the value at the given key if this is an Object variant.
+    /// Looks up a value by key if this is a `JsonValue::Object`.
+    ///
+    /// Returns `Some(&JsonValue)` if the key exists in the object, `None`
+    /// if the key is missing or if this value is not an object.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::parse_json;
+    ///
+    /// let value = parse_json(r#"{"name": "Alice"}"#)?;
+    /// assert_eq!(value.get("name").unwrap().as_str(), Some("Alice"));
+    /// assert_eq!(value.get("missing"), None);
+    ///
+    /// let number = parse_json("42")?;
+    /// assert_eq!(number.get("key"), None);
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
     pub fn get(&self, key: &str) -> Option<&JsonValue> {
         match self {
             JsonValue::Object(obj) => obj.get(key),
@@ -68,7 +235,25 @@ impl JsonValue {
         }
     }
 
-    /// Returns a reference to the value at the given index if this is an Array variant.
+    /// Looks up a value by index if this is a `JsonValue::Array`.
+    ///
+    /// Returns `Some(&JsonValue)` if the index is within bounds, `None`
+    /// if the index is out of bounds or if this value is not an array.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::parse_json;
+    ///
+    /// let value = parse_json(r#"["first", "second", "third"]"#)?;
+    /// assert_eq!(value.get_index(0).unwrap().as_str(), Some("first"));
+    /// assert_eq!(value.get_index(2).unwrap().as_str(), Some("third"));
+    /// assert_eq!(value.get_index(5), None);
+    ///
+    /// let number = parse_json("42")?;
+    /// assert_eq!(number.get_index(0), None);
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
     pub fn get_index(&self, index: usize) -> Option<&JsonValue> {
         match self {
             JsonValue::Array(arr) => arr.get(index),

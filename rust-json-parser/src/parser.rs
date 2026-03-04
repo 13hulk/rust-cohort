@@ -18,12 +18,14 @@ pub struct JsonParser {
 }
 
 impl JsonParser {
+    /// Creates a new parser by tokenizing the given JSON input string.
     pub fn new(input: &str) -> Result<Self, JsonError> {
         let mut tokenizer = Tokenizer::new(input);
         let tokens = tokenizer.tokenize()?;
         Ok(Self { tokens, current: 0 })
     }
 
+    /// Parses the token stream and returns the top-level JSON value.
     pub fn parse(&mut self) -> Result<JsonValue, JsonError> {
         let value = self.parse_value()?;
         if !self.is_at_end() {

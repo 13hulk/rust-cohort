@@ -5,19 +5,27 @@ use crate::error::JsonError;
 /// Represents a single JSON token.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    // Structural tokens
-    LeftBrace,    // {
-    RightBrace,   // }
-    LeftBracket,  // [
-    RightBracket, // ]
-    Comma,        // ,
-    Colon,        // :
+    /// Opening brace `{`.
+    LeftBrace,
+    /// Closing brace `}`.
+    RightBrace,
+    /// Opening bracket `[`.
+    LeftBracket,
+    /// Closing bracket `]`.
+    RightBracket,
+    /// Comma `,`.
+    Comma,
+    /// Colon `:`.
+    Colon,
 
-    // Value tokens
-    String(String), // e.g., "hello"
-    Number(f64),    // e.g., 42, 3.14, -10
-    Boolean(bool),  // true, false
-    Null,           // null
+    /// A string literal, e.g. `"hello"`.
+    String(String),
+    /// A numeric literal, e.g. `42`, `3.14`, `-10`.
+    Number(f64),
+    /// A boolean literal (`true` or `false`).
+    Boolean(bool),
+    /// The `null` literal.
+    Null,
 }
 
 /// Holds the input and current position for tokenization.
@@ -27,6 +35,7 @@ pub struct Tokenizer {
 }
 
 impl Tokenizer {
+    /// Creates a new tokenizer for the given JSON input string.
     pub fn new(input: &str) -> Self {
         Self {
             input: input.chars().collect(),
@@ -34,6 +43,7 @@ impl Tokenizer {
         }
     }
 
+    /// Consumes the input and produces a vector of tokens.
     pub fn tokenize(&mut self) -> Result<Vec<Token>, JsonError> {
         let mut tokens = Vec::new();
 
