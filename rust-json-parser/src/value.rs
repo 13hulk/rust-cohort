@@ -426,4 +426,34 @@ mod display_tests {
         assert!(output.contains("\"arr\""));
         assert!(output.contains("[1,2]"));
     }
+
+    #[test]
+    fn test_display_object_key_with_quotes() {
+        let mut map = HashMap::new();
+        map.insert(
+            "say \"hi\"".to_string(),
+            JsonValue::String("value".to_string()),
+        );
+        let obj = JsonValue::Object(map);
+        let output = obj.to_string();
+        assert!(output.contains("\"say \\\"hi\\\"\""));
+    }
+
+    #[test]
+    fn test_display_object_key_with_newline() {
+        let mut map = HashMap::new();
+        map.insert("line1\nline2".to_string(), JsonValue::Number(1.0));
+        let obj = JsonValue::Object(map);
+        let output = obj.to_string();
+        assert!(output.contains("\"line1\\nline2\""));
+    }
+
+    #[test]
+    fn test_display_object_key_with_backslash() {
+        let mut map = HashMap::new();
+        map.insert("path\\to".to_string(), JsonValue::Boolean(true));
+        let obj = JsonValue::Object(map);
+        let output = obj.to_string();
+        assert!(output.contains("\"path\\\\to\""));
+    }
 }

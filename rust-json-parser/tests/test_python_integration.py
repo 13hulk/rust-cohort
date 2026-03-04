@@ -70,3 +70,15 @@ class TestSerialization:
     def test_dumps_with_indent(self):
         result = dumps({"key": "value"}, indent=2)
         assert "\n" in result
+
+    def test_dumps_escapes_object_keys(self):
+        result = dumps({'say "hi"': "value"})
+        assert '"say \\"hi\\""' in result
+
+    def test_dumps_escapes_object_keys_with_newline(self):
+        result = dumps({"line1\nline2": "value"})
+        assert '"line1\\nline2"' in result
+
+    def test_dumps_indent_escapes_object_keys(self):
+        result = dumps({'say "hi"': "value"}, indent=2)
+        assert '"say \\"hi\\""' in result
