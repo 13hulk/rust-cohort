@@ -5,6 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
 use crate::error::JsonError;
+use crate::value::JsonFormat;
 use crate::value::JsonValue;
 
 /// Convert JsonValue to Python native types.
@@ -112,40 +113,18 @@ fn dumps(obj: &Bound<'_, PyAny>, indent: Option<usize>) -> PyResult<String> {
 }
 
 /// Recursively format a JsonValue with indentation.
+///
+/// Primitives reuse Display (which delegates to JsonFormat).
+/// Array and Object need custom handling for indentation and sorted keys.
 fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
     match value {
-        JsonValue::Null => "null".to_string(),
-        JsonValue::Boolean(b) => format!("{}", b),
-        JsonValue::Number(n) => {
-            if n.fract() == 0.0 {
-                format!("{:.0}", n)
-            } else {
-                format!("{}", n)
-            }
-        }
-        JsonValue::String(s) => {
-            let mut result = std::string::String::new();
-            result.push('"');
-            for ch in s.chars() {
-                match ch {
-                    '"' => result.push_str("\\\""),
-                    '\\' => result.push_str("\\\\"),
-                    '\n' => result.push_str("\\n"),
-                    '\r' => result.push_str("\\r"),
-                    '\t' => result.push_str("\\t"),
-                    _ => result.push(ch),
-                }
-            }
-            result.push('"');
-            result
-        }
         JsonValue::Array(arr) => {
             if arr.is_empty() {
                 return "[]".to_string();
             }
             let inner_indent = " ".repeat(indent_size * (depth + 1));
             let outer_indent = " ".repeat(indent_size * depth);
-            let mut result = std::string::String::new();
+            let mut result = String::new();
             result.push_str("[\n");
             for (i, item) in arr.iter().enumerate() {
                 result.push_str(&inner_indent);
@@ -165,16 +144,15 @@ fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
             }
             let inner_indent = " ".repeat(indent_size * (depth + 1));
             let outer_indent = " ".repeat(indent_size * depth);
-            let mut result = std::string::String::new();
+            let mut result = String::new();
             result.push_str("{\n");
-            let mut entries: Vec<(&std::string::String, &JsonValue)> = map.iter().collect();
+            let mut entries: Vec<(&String, &JsonValue)> = map.iter().collect();
             entries.sort_by_key(|(k, _)| *k);
-            for (i, (key, value)) in entries.iter().enumerate() {
+            for (i, (key, val)) in entries.iter().enumerate() {
                 result.push_str(&inner_indent);
-                result.push('"');
-                result.push_str(key);
-                result.push_str("\": ");
-                result.push_str(&pretty_print(value, indent_size, depth + 1));
+                result.push_str(&key.to_json_string());
+                result.push_str(": ");
+                result.push_str(&pretty_print(val, indent_size, depth + 1));
                 if i < entries.len() - 1 {
                     result.push(',');
                 }
@@ -184,6 +162,8 @@ fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
             result.push('}');
             result
         }
+        // Null, Boolean, Number, String — reuse Display (delegates to JsonFormat)
+        _ => value.to_string(),
     }
 }
 

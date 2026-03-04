@@ -78,7 +78,7 @@ impl JsonValue {
 }
 
 /// Trait for converting a value into its JSON string representation.
-trait JsonFormat {
+pub(crate) trait JsonFormat {
     fn to_json_string(&self) -> String;
 }
 
