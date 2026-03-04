@@ -57,7 +57,8 @@ pub fn parse_json(input: &str) -> Result<JsonValue, JsonError> {
 /// ```
 pub struct JsonParser {
     tokens: Vec<Token>,
-    current: usize,
+    tokenizer: Tokenizer,
+    total_count: usize,
 }
 
 impl JsonParser {
@@ -74,8 +75,70 @@ impl JsonParser {
     /// invalid numbers).
     pub fn new(input: &str) -> Result<Self, JsonError> {
         let mut tokenizer = Tokenizer::new(input);
-        let tokens = tokenizer.tokenize()?;
-        Ok(Self { tokens, current: 0 })
+        let mut tokens = tokenizer.tokenize()?;
+        let total_count = tokens.len();
+        tokens.reverse();
+        Ok(Self {
+            tokens,
+            tokenizer,
+            total_count,
+        })
+    }
+
+    /// Creates an empty parser for buffer reuse across multiple inputs.
+    ///
+    /// Call [`reparse`](Self::reparse) to parse each input, reusing the
+    /// internal token buffer to avoid repeated allocation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::JsonParser;
+    /// use rust_json_parser::value::JsonValue;
+    ///
+    /// let mut parser = JsonParser::new_reusable();
+    /// let v1 = parser.reparse("[1, 2, 3]")?;
+    /// assert_eq!(v1.get_index(0), Some(&JsonValue::Number(1.0)));
+    ///
+    /// let v2 = parser.reparse("true")?;
+    /// assert_eq!(v2, JsonValue::Boolean(true));
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
+    pub fn new_reusable() -> Self {
+        Self {
+            tokens: Vec::new(),
+            tokenizer: Tokenizer::new(""),
+            total_count: 0,
+        }
+    }
+
+    /// Parses a JSON string, reusing the internal token buffer.
+    ///
+    /// Each call clears the buffer (keeping its heap allocation) and
+    /// re-tokenizes the input. This avoids allocating a new token vector
+    /// on every parse, which is beneficial when parsing many inputs in a
+    /// loop.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::parser::JsonParser;
+    ///
+    /// let mut parser = JsonParser::new_reusable();
+    /// let value = parser.reparse(r#"{"key": "value"}"#)?;
+    /// assert_eq!(value.get("key").unwrap().as_str(), Some("value"));
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JsonError`] if the input is not valid JSON.
+    pub fn reparse(&mut self, input: &str) -> Result<JsonValue, JsonError> {
+        self.tokens.clear();
+        self.tokenizer.retokenize(input, &mut self.tokens)?;
+        self.total_count = self.tokens.len();
+        self.tokens.reverse();
+        self.parse()
     }
 
     /// Parses the token stream and returns the top-level JSON value.
@@ -91,6 +154,7 @@ impl JsonParser {
     pub fn parse(&mut self) -> Result<JsonValue, JsonError> {
         let value = self.parse_value()?;
         if !self.is_at_end() {
+            let position = self.consumed();
             let token = self.advance();
             return Err(JsonError::UnexpectedToken {
                 expected: "end of input".to_string(),
@@ -98,7 +162,7 @@ impl JsonParser {
                     Some(t) => format!("{:?}", t),
                     None => "<no token>".to_string(),
                 },
-                position: self.current - 1,
+                position,
             });
         }
         Ok(value)
@@ -108,29 +172,32 @@ impl JsonParser {
         match self.peek() {
             Some(Token::LeftBracket) => self.parse_array(),
             Some(Token::LeftBrace) => self.parse_object(),
-            _ => match self.advance() {
-                Some(Token::String(s)) => Ok(JsonValue::String(s)),
-                Some(Token::Number(n)) => Ok(JsonValue::Number(n)),
-                Some(Token::Boolean(b)) => Ok(JsonValue::Boolean(b)),
-                Some(Token::Null) => Ok(JsonValue::Null),
-                Some(other) => Err(JsonError::UnexpectedToken {
-                    expected: "JSON value".to_string(),
-                    found: format!("{:?}", other),
-                    position: self.current - 1,
-                }),
-                None => Err(JsonError::UnexpectedEndOfInput {
-                    expected: "JSON value".to_string(),
-                    position: self.current,
-                }),
-            },
+            _ => {
+                let position = self.consumed();
+                match self.advance() {
+                    Some(Token::String(s)) => Ok(JsonValue::String(s)),
+                    Some(Token::Number(n)) => Ok(JsonValue::Number(n)),
+                    Some(Token::Boolean(b)) => Ok(JsonValue::Boolean(b)),
+                    Some(Token::Null) => Ok(JsonValue::Null),
+                    Some(other) => Err(JsonError::UnexpectedToken {
+                        expected: "JSON value".to_string(),
+                        found: format!("{:?}", other),
+                        position,
+                    }),
+                    None => Err(JsonError::UnexpectedEndOfInput {
+                        expected: "JSON value".to_string(),
+                        position,
+                    }),
+                }
+            }
         }
     }
 
     fn parse_array(&mut self) -> Result<JsonValue, JsonError> {
         self.advance(); // consume opening '['
-        // TODO: estimate — assumes ~2 tokens per element (value + comma), overestimates for nested structures
-        let remaining = (self.tokens.len() - self.current) / 2;
-        let mut elements: Vec<JsonValue> = Vec::with_capacity(remaining);
+        // TODO: estimate, ~2 tokens per element (value + comma), cap at 64 to avoid over-alloc on large files
+        let estimate = self.tokens.len() / 2;
+        let mut elements: Vec<JsonValue> = Vec::with_capacity(estimate.min(64));
 
         // Empty array case
         if matches!(self.peek(), Some(Token::RightBracket)) {
@@ -152,7 +219,7 @@ impl JsonParser {
                         return Err(JsonError::UnexpectedToken {
                             expected: "JSON value".to_string(),
                             found: "]".to_string(),
-                            position: self.current,
+                            position: self.consumed(),
                         });
                     }
                 }
@@ -164,13 +231,13 @@ impl JsonParser {
                     return Err(JsonError::UnexpectedToken {
                         expected: "comma or closing bracket".to_string(),
                         found: format!("{:?}", other),
-                        position: self.current,
+                        position: self.consumed(),
                     });
                 }
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
                         expected: "comma or closing bracket".to_string(),
-                        position: self.current,
+                        position: self.consumed(),
                     });
                 }
             }
@@ -181,9 +248,9 @@ impl JsonParser {
 
     fn parse_object(&mut self) -> Result<JsonValue, JsonError> {
         self.advance(); // consume opening '{'
-        // TODO: estimate — assumes ~4 tokens per entry (key, colon, value, comma), overestimates for nested values
-        let remaining = (self.tokens.len() - self.current) / 4;
-        let mut map: HashMap<String, JsonValue> = HashMap::with_capacity(remaining);
+        // TODO: estimate, ~4 tokens per entry (key + colon + value + comma), cap at 16 to avoid over-alloc
+        let estimate = self.tokens.len() / 4;
+        let mut map: HashMap<String, JsonValue> = HashMap::with_capacity(estimate.min(16));
 
         // Empty object case
         if matches!(self.peek(), Some(Token::RightBrace)) {
@@ -193,37 +260,39 @@ impl JsonParser {
 
         loop {
             // Expect a string key
+            let position = self.consumed();
             let key = match self.advance() {
                 Some(Token::String(s)) => s,
                 Some(other) => {
                     return Err(JsonError::UnexpectedToken {
                         expected: "string key".to_string(),
                         found: format!("{:?}", other),
-                        position: self.current - 1,
+                        position,
                     });
                 }
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
                         expected: "string key".to_string(),
-                        position: self.current,
+                        position,
                     });
                 }
             };
 
             // Expect a colon
+            let position = self.consumed();
             match self.advance() {
                 Some(Token::Colon) => {}
                 Some(other) => {
                     return Err(JsonError::UnexpectedToken {
                         expected: "colon".to_string(),
                         found: format!("{:?}", other),
-                        position: self.current - 1,
+                        position,
                     });
                 }
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
                         expected: "colon".to_string(),
-                        position: self.current,
+                        position,
                     });
                 }
             }
@@ -241,7 +310,7 @@ impl JsonParser {
                         return Err(JsonError::UnexpectedToken {
                             expected: "string key".to_string(),
                             found: "}".to_string(),
-                            position: self.current,
+                            position: self.consumed(),
                         });
                     }
                 }
@@ -253,13 +322,13 @@ impl JsonParser {
                     return Err(JsonError::UnexpectedToken {
                         expected: "comma or closing brace".to_string(),
                         found: format!("{:?}", other),
-                        position: self.current,
+                        position: self.consumed(),
                     });
                 }
                 None => {
                     return Err(JsonError::UnexpectedEndOfInput {
                         expected: "comma or closing brace".to_string(),
-                        position: self.current,
+                        position: self.consumed(),
                     });
                 }
             }
@@ -268,26 +337,21 @@ impl JsonParser {
         Ok(JsonValue::Object(map))
     }
 
+    // Reversed so pop() yields front-to-back without cloning.
     fn advance(&mut self) -> Option<Token> {
-        if self.is_at_end() {
-            None
-        } else {
-            let token = self.tokens[self.current].clone();
-            self.current += 1;
-            Some(token)
-        }
+        self.tokens.pop()
     }
 
     fn peek(&self) -> Option<&Token> {
-        if self.is_at_end() {
-            None
-        } else {
-            Some(&self.tokens[self.current])
-        }
+        self.tokens.last()
     }
 
     fn is_at_end(&self) -> bool {
-        self.current >= self.tokens.len()
+        self.tokens.is_empty()
+    }
+
+    fn consumed(&self) -> usize {
+        self.total_count - self.tokens.len()
     }
 }
 

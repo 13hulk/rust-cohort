@@ -128,7 +128,7 @@ fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
             }
             let inner_indent = " ".repeat(indent_size * (depth + 1));
             let outer_indent = " ".repeat(indent_size * depth);
-            // estimate: +8 per element for value~6 + comma + newline, +4 for "[\n" and "\n]"
+            // TODO: estimate, +8 per element (~6 value + comma + newline), +4 for "[\n" and "\n]"
             let mut result = String::with_capacity(
                 arr.len() * (inner_indent.len() + 8) + outer_indent.len() + 4,
             );
@@ -151,7 +151,7 @@ fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
             }
             let inner_indent = " ".repeat(indent_size * (depth + 1));
             let outer_indent = " ".repeat(indent_size * depth);
-            // estimate: +20 per entry for "key": value,\n (~6 key + 2 colon-space + ~8 value + 2 comma+newline), +4 for "{\n" and "\n}"
+            // TODO: estimate, +20 per entry (~6 key + 2 ": " + ~8 value + comma + newline), +4 for "{\n" and "\n}"
             let mut result = String::with_capacity(
                 map.len() * (inner_indent.len() + 20) + outer_indent.len() + 4,
             );
@@ -172,7 +172,7 @@ fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
             result.push('}');
             result
         }
-        // Null, Boolean, Number, String — reuse Display (delegates to JsonFormat)
+        // Null, Boolean, Number, String: reuse Display
         _ => value.to_string(),
     }
 }
@@ -190,15 +190,17 @@ fn benchmark_performance(
     json_str: &str,
     iterations: usize,
 ) -> PyResult<(f64, f64, f64)> {
+    let mut parser = crate::parser::JsonParser::new_reusable();
+
     // Warmup Rust parser (100 iterations)
     for _ in 0..100 {
-        let _ = crate::parser::parse_json(json_str);
+        let _ = parser.reparse(json_str);
     }
 
     // Time Rust parser
     let start = Instant::now();
     for _ in 0..iterations {
-        let _ = crate::parser::parse_json(json_str);
+        let _ = parser.reparse(json_str);
     }
     let rust_time = start.elapsed().as_secs_f64();
 
