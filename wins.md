@@ -164,6 +164,43 @@ Anything you consider a win counts but even better if it's a result of your prog
 
 ## Week 06: 2026-02-23 - 2026-03-01
 
--
--
--
+### Professional Documentation with Doc Tests
+- Added `#![warn(missing_docs)]` to enforce documentation on all public items
+- Wrote comprehensive `///` doc comments on every public enum, variant, struct, method, and function across all source files
+- Added module-level `//!` documentation with crate overview and Quick Start example
+- Created 18 doc tests with `# Examples` sections that compile and run as part of `cargo test`
+- Used hidden lines (`#` prefix) and `?` operator patterns for clean, idiomatic doc examples
+- `cargo doc` generates complete HTML documentation with zero warnings
+
+### Cross-Language Benchmarking
+- Built `benchmark_performance()` pyfunction that times Rust parser vs Python `json` (C) vs `simplejson`
+- Used `std::time::Instant` for monotonic timing with warmup iterations (100) before measurement
+- Called Python modules from Rust using `py.import()`, `.getattr()`, `.call1()` -- a new PyO3 pattern
+- Implemented `#[pyo3(signature = (json_str, iterations=1000))]` with default parameter values
+- Added `--benchmark` CLI flag with 5 input files and formatted speedup ratios
+- Results saved to `benchmarks/results.md` with per-iteration and overall summary tables
+- Added `simplejson>=3.19.0` as a project dependency
+
+### Memory Optimization with `with_capacity()`
+- Applied `with_capacity()` calls across tokenizer, parser, value, and python_bindings modules
+- Used data-driven capacity estimates: remaining tokens / 2 for arrays, / 4 for objects, exact sizes where known
+- Kept code readable with TODO markers on heuristic estimates for future tuning
+
+### Buffer Reuse and Byte-Scan Optimizations
+- Added `retokenize()` to reuse tokenizer's internal `String` buffer across parses (`clear()` + `push_str()`)
+- Added `new_reusable()` / `reparse()` on `JsonParser` for zero-alloc repeated parsing in benchmarks
+- Switched tokenizer from `Vec<char>` to `String` with byte-level scanning via `.as_bytes()`
+- Replaced per-char `to_json_string()` with byte-scan + bulk `push_str()` for unescaped segments
+- Keywords and numbers now use slice references (`&self.input[start..end]`) instead of building new strings
+
+### Benchmark Results
+- Rust is 2-2.3x faster than Python `json` on small inputs (~110B)
+- Rust is 1.1-1.2x slower than Python `json` on medium/large inputs (Python's `json` is 15+ years of optimized C)
+- Rust is 10-16x faster than `simplejson` across all sizes
+- Main bottleneck: every `Token::String` allocates a new heap String; fixing this requires lifetime annotations (blocked by curriculum)
+
+### Final Project Stats
+- 162 unit tests + 18 doc tests = 180 total Rust tests
+- 15 Python integration tests (4 new across weeks 5-6)
+- Zero clippy warnings, zero doc warnings
+- All 6 curriculum weeks complete -- full JSON parser with tokenizer, recursive descent parser, Display serialization, Python bindings, documentation, and benchmarking
