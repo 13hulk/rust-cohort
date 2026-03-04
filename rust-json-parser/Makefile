@@ -1,4 +1,4 @@
-.PHONY: help build test run fmt fmt-check clippy check clean doc pre-commit-install all
+.PHONY: help build test run fmt fmt-check clippy check clean doc doc-test pre-commit-install all
 .PHONY: python-build python-test python-fmt python-fmt-check python-lint python-lint-fix python-typecheck python-run python-all
 
 help:
@@ -11,7 +11,8 @@ help:
 	@echo "  make clippy             - Run Rust linter (warnings as errors)"
 	@echo "  make check              - Quick compile check"
 	@echo "  make clean              - Remove build artifacts"
-	@echo "  make doc                - Generate and open docs"
+	@echo "  make doc                - Generate documentation"
+	@echo "  make doc-test           - Run doc tests only"
 	@echo "  make all                - Run fmt, clippy, test, build"
 	@echo ""
 	@echo "Python commands:"
@@ -53,7 +54,10 @@ clean:
 	cargo clean
 
 doc:
-	cargo doc --open
+	cargo doc --no-default-features
+
+doc-test:
+	cargo test --doc --no-default-features
 
 pre-commit-install:
 	pre-commit install
