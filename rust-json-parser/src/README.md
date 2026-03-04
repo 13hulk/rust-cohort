@@ -24,7 +24,7 @@ Object({"key": Array([Number(1.0), Boolean(true)])})
 
 ### Tokenizer (`tokenizer.rs`)
 
-Converts a JSON string into a flat token stream.
+Scans JSON text byte by byte and produces a flat token stream. Pre-allocates the token vector with `Vec::with_capacity(input.len() / 3)` based on the heuristic that tokens average roughly 3 bytes each. Supports buffer reuse via `retokenize()` and `tokenize_into()` for benchmark loops.
 
 ```rust
 use rust_json_parser::tokenizer::Tokenizer;
@@ -37,9 +37,11 @@ let tokens = Tokenizer::new(r#"{"key": 42}"#).tokenize().unwrap();
 
 **Escape sequences:** `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`, `\uXXXX` (unicode)
 
+**Capacity hints:** String buffers (`String::with_capacity(32)`). Keywords and numbers use slicing (no allocation needed).
+
 ### Parser (`parser.rs`)
 
-Recursive descent parser that walks the token stream and builds a value tree.
+Recursive descent parser that walks the token stream and builds a value tree. Pre-allocates arrays with `Vec::with_capacity` and objects with `HashMap::with_capacity` based on remaining token count estimates. Supports buffer reuse via `new_reusable()` and `reparse()` for benchmark loops.
 
 ```rust
 use rust_json_parser::parser::{parse_json, JsonParser};
@@ -54,7 +56,7 @@ let value = parser.parse().unwrap();
 
 ### Value (`value.rs`)
 
-`JsonValue` enum with 6 variants and accessor methods.
+`JsonValue` enum with 6 variants and accessor methods. The `Display` implementation uses a private `JsonFormat` trait with per-type formatting methods. String escaping uses byte scanning with bulk `push_str()` copies for unescaped segments.
 
 ```rust
 use rust_json_parser::parser::parse_json;
@@ -103,12 +105,31 @@ match parse_json("@invalid") {
 
 **Variants:** `UnexpectedToken`, `UnexpectedEndOfInput`, `InvalidNumber`, `InvalidEscape`, `InvalidUnicode`
 
+## Documentation
+
+The crate enforces `#![warn(missing_docs)]` at the top of `lib.rs`, ensuring all public items (modules, structs, enums, variants, functions, methods) have doc comments. Many doc comments include runnable examples that serve as both documentation and tests.
+
+```bash
+make doc        # generate docs (open with: cargo doc --no-default-features --open)
+make doc-test   # run 18 doc tests
+```
+
+## Optimizations
+
+Memory pre-allocation is used throughout to reduce allocations:
+
+- **Tokenizer:** Token vector sized to `input.len() / 3`, string buffers to 32 chars. Buffer reuse via `retokenize()`
+- **Parser:** Arrays and objects pre-allocated based on remaining token count (capped). Buffer reuse via `reparse()`
+- **Value:** String escaping via byte scan + bulk `push_str()` copies
+- **Python bindings:** Conversion buffers for lists, dicts, and serialization output
+
 ## Building
 
 ```bash
-cargo build --no-default-features    # Rust-only build (no Python linkage)
-cargo test --no-default-features     # Run 159 Rust tests
-cargo check --features python        # Check with PyO3 enabled
+make build      # Rust-only build (no Python linkage)
+make test       # Run 180 Rust tests (162 unit + 18 doc)
+make doc        # Generate API documentation
+make all        # fmt + clippy + test + build
 ```
 
-The `--no-default-features` flag excludes the PyO3 dependency, which requires a Python environment to link against.
+All Makefile targets use `--no-default-features` to exclude PyO3 (which requires a Python environment to link against).
