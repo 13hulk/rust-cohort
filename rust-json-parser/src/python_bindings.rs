@@ -1,5 +1,7 @@
 //! Python bindings for the JSON parser using PyO3.
 
+use std::time::Instant;
+
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
@@ -167,11 +169,72 @@ fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
     }
 }
 
+/// Benchmarks JSON parsing performance comparing Rust, Python json, and simplejson.
+///
+/// Runs the specified number of iterations for each parser and returns
+/// the total elapsed time in seconds for each.
+///
+/// Returns a tuple of `(rust_time, python_json_time, simplejson_time)`.
+#[pyfunction]
+#[pyo3(signature = (json_str, iterations=1000))]
+fn benchmark_performance(
+    py: Python<'_>,
+    json_str: &str,
+    iterations: usize,
+) -> PyResult<(f64, f64, f64)> {
+    // Warmup Rust parser (100 iterations)
+    for _ in 0..100 {
+        let _ = crate::parser::parse_json(json_str);
+    }
+
+    // Time Rust parser
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let _ = crate::parser::parse_json(json_str);
+    }
+    let rust_time = start.elapsed().as_secs_f64();
+
+    // Import Python's json module and get loads function
+    let json_module = py.import("json")?;
+    let json_loads = json_module.getattr("loads")?;
+
+    // Warmup Python json (100 iterations)
+    for _ in 0..100 {
+        let _ = json_loads.call1((json_str,))?;
+    }
+
+    // Time Python json
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let _ = json_loads.call1((json_str,))?;
+    }
+    let python_json_time = start.elapsed().as_secs_f64();
+
+    // Import simplejson and get loads function
+    let simplejson_module = py.import("simplejson")?;
+    let simplejson_loads = simplejson_module.getattr("loads")?;
+
+    // Warmup simplejson (100 iterations)
+    for _ in 0..100 {
+        let _ = simplejson_loads.call1((json_str,))?;
+    }
+
+    // Time simplejson
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let _ = simplejson_loads.call1((json_str,))?;
+    }
+    let simplejson_time = start.elapsed().as_secs_f64();
+
+    Ok((rust_time, python_json_time, simplejson_time))
+}
+
 /// Register all Python-callable functions in the module.
 #[pymodule]
 fn _rust_json_parser(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_json, m)?)?;
     m.add_function(wrap_pyfunction!(parse_json_file, m)?)?;
     m.add_function(wrap_pyfunction!(dumps, m)?)?;
+    m.add_function(wrap_pyfunction!(benchmark_performance, m)?)?;
     Ok(())
 }
