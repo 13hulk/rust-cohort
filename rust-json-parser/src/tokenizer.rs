@@ -1,15 +1,11 @@
 //! JSON tokenizer module.
 //!
-//! This module implements the first phase of the two-phase JSON parsing
-//! pipeline. The [`Tokenizer`](crate::tokenizer::Tokenizer) scans raw JSON
-//! text character by character and converts it into a flat sequence of
-//! [`Token`](crate::tokenizer::Token) values. These tokens are then consumed
-//! by the parser in [`crate::parser`] to build a
-//! [`JsonValue`](crate::value::JsonValue) tree.
+//! First phase of the two-phase parsing pipeline. Scans JSON text byte by byte
+//! and produces a flat `Vec<Token>`. The parser in [`crate::parser`] then
+//! builds a [`JsonValue`](crate::value::JsonValue) tree from these tokens.
 //!
-//! The tokenizer handles all JSON lexical elements including structural
-//! characters, string escape sequences (8 basic escapes plus `\uXXXX`
-//! unicode escapes), numbers, booleans, and null.
+//! Handles all JSON lexical elements: structural characters, string escape
+//! sequences (8 basic + `\uXXXX`), numbers, booleans, and null.
 
 use crate::error::JsonError;
 
@@ -57,12 +53,9 @@ pub enum Token {
     Null,
 }
 
-/// A character-by-character scanner that converts JSON text into tokens.
+/// Scans JSON text byte by byte and produces a `Vec<Token>`.
 ///
-/// The tokenizer owns the input as a `Vec<char>` and walks through it
-/// one character at a time, producing a `Vec<Token>` on success. It
-/// recognizes all JSON lexical elements: structural characters, strings
-/// (with escape sequence handling), numbers, booleans, and null.
+/// Owns the input as a `String` and uses `.as_bytes()` for scanning.
 ///
 /// # Examples
 ///
@@ -74,19 +67,18 @@ pub enum Token {
 /// # Ok::<(), rust_json_parser::error::JsonError>(())
 /// ```
 pub struct Tokenizer {
-    input: Vec<char>,
+    input: String,
     position: usize,
 }
 
 impl Tokenizer {
     /// Creates a new tokenizer from a JSON input string.
     ///
-    /// The input is converted to a `Vec<char>` for character-by-character
-    /// scanning. No validation is performed until [`tokenize`](Self::tokenize)
-    /// is called.
+    /// No validation is performed until [`tokenize`](Self::tokenize) is
+    /// called.
     pub fn new(input: &str) -> Self {
         Self {
-            input: input.chars().collect(),
+            input: input.to_string(),
             position: 0,
         }
     }
@@ -116,62 +108,132 @@ impl Tokenizer {
     /// invalid characters, malformed strings, invalid escape sequences,
     /// invalid numbers, or unrecognized keywords.
     pub fn tokenize(&mut self) -> Result<Vec<Token>, JsonError> {
-        // TODO: estimate — rough guess, ~3 chars per token on average
+        // TODO: estimate, assumes ~3 bytes per token (1-char delimiters + short strings/numbers)
         let mut tokens = Vec::with_capacity(self.input.len() / 3);
+        self.tokenize_into(&mut tokens)?;
+        Ok(tokens)
+    }
 
-        while let Some(ch) = self.peek() {
-            match ch {
+    /// Re-tokenizes new input, reusing the internal string buffer.
+    ///
+    /// Clears the stored input (keeping its heap allocation) and copies
+    /// the new input into it, then tokenizes into the provided token buffer.
+    /// On repeated calls with similar-sized inputs, this avoids reallocating
+    /// the input string on every parse.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::tokenizer::{Token, Tokenizer};
+    ///
+    /// let mut tokenizer = Tokenizer::new("");
+    /// let mut tokens = Vec::new();
+    ///
+    /// tokenizer.retokenize("[1, 2]", &mut tokens)?;
+    /// assert_eq!(tokens.len(), 5);
+    ///
+    /// tokens.clear();
+    /// tokenizer.retokenize("true", &mut tokens)?;
+    /// assert_eq!(tokens.len(), 1);
+    /// assert_eq!(tokens[0], Token::Boolean(true));
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JsonError`] if the input contains
+    /// invalid characters, malformed strings, invalid escape sequences,
+    /// invalid numbers, or unrecognized keywords.
+    pub fn retokenize(&mut self, input: &str, tokens: &mut Vec<Token>) -> Result<(), JsonError> {
+        self.input.clear();
+        self.input.push_str(input);
+        self.position = 0;
+        self.tokenize_into(tokens)
+    }
+
+    /// Scans the input into the provided token buffer.
+    ///
+    /// This allows callers to reuse a token buffer across multiple calls,
+    /// avoiding repeated heap allocation. The caller is responsible for
+    /// clearing the buffer before each call if reuse is desired.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::tokenizer::{Token, Tokenizer};
+    ///
+    /// let mut tokens = Vec::new();
+    /// Tokenizer::new("[1, 2]").tokenize_into(&mut tokens)?;
+    /// assert_eq!(tokens.len(), 5);
+    ///
+    /// tokens.clear();
+    /// Tokenizer::new("true").tokenize_into(&mut tokens)?;
+    /// assert_eq!(tokens.len(), 1);
+    /// assert_eq!(tokens[0], Token::Boolean(true));
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JsonError`] if the input contains
+    /// invalid characters, malformed strings, invalid escape sequences,
+    /// invalid numbers, or unrecognized keywords.
+    pub fn tokenize_into(&mut self, tokens: &mut Vec<Token>) -> Result<(), JsonError> {
+        while let Some(b) = self.peek() {
+            match b {
                 // Structural tokens
-                '{' => {
+                b'{' => {
                     tokens.push(Token::LeftBrace);
                     self.advance();
                 }
-                '}' => {
+                b'}' => {
                     tokens.push(Token::RightBrace);
                     self.advance();
                 }
-                '[' => {
+                b'[' => {
                     tokens.push(Token::LeftBracket);
                     self.advance();
                 }
-                ']' => {
+                b']' => {
                     tokens.push(Token::RightBracket);
                     self.advance();
                 }
-                ':' => {
+                b':' => {
                     tokens.push(Token::Colon);
                     self.advance();
                 }
-                ',' => {
+                b',' => {
                     tokens.push(Token::Comma);
                     self.advance();
                 }
 
                 // Whitespace: skip
-                ' ' | '\n' | '\t' | '\r' => {
+                b' ' | b'\n' | b'\t' | b'\r' => {
                     self.advance();
                 }
 
                 // String: parse
-                '"' => {
+                b'"' => {
                     let s = self.parse_string()?;
                     tokens.push(Token::String(s));
                 }
 
                 // Keywords: parse true, false, null
-                't' | 'f' | 'n' => {
+                b't' | b'f' | b'n' => {
                     let token = self.parse_keyword()?;
                     tokens.push(token);
                 }
 
                 // Number: parse (starts with digit, minus sign, or decimal point)
-                '0'..='9' | '-' | '.' => {
+                b'0'..=b'9' | b'-' | b'.' => {
                     let n = self.parse_number()?;
                     tokens.push(Token::Number(n));
                 }
 
                 // Unknown: return error
                 _ => {
+                    // Extract the actual char for the error message
+                    let ch = self.input[self.position..].chars().next().unwrap();
                     return Err(JsonError::UnexpectedToken {
                         expected: "valid JSON token".to_string(),
                         found: ch.to_string(),
@@ -181,27 +243,36 @@ impl Tokenizer {
             }
         }
 
-        Ok(tokens)
+        Ok(())
     }
 
     fn parse_string(&mut self) -> Result<String, JsonError> {
         let string_start = self.position;
         self.advance(); // consume opening quote
-        // TODO: estimate — most JSON strings are object keys or short values, 32 handles those without reallocation
+        // TODO: estimate, most strings are short keys/values so 32 should be enough
         let mut s = String::with_capacity(32);
+        let mut seg_start = self.position;
         loop {
             match self.peek() {
-                Some('"') => {
+                Some(b'"') => {
+                    // Flush the current unescaped segment
+                    if seg_start < self.position {
+                        s.push_str(&self.input[seg_start..self.position]);
+                    }
                     self.advance();
                     return Ok(s);
                 }
-                Some('\\') => {
+                Some(b'\\') => {
+                    // Flush the segment before the backslash
+                    if seg_start < self.position {
+                        s.push_str(&self.input[seg_start..self.position]);
+                    }
                     self.advance(); // consume backslash
                     let ch = self.parse_escape_sequence()?;
                     s.push(ch);
+                    seg_start = self.position;
                 }
-                Some(c) => {
-                    s.push(c);
+                Some(_) => {
                     self.advance();
                 }
                 None => {
@@ -216,44 +287,44 @@ impl Tokenizer {
 
     fn parse_escape_sequence(&mut self) -> Result<char, JsonError> {
         match self.peek() {
-            Some('"') => {
+            Some(b'"') => {
                 self.advance();
                 Ok('"')
             }
-            Some('\\') => {
+            Some(b'\\') => {
                 self.advance();
                 Ok('\\')
             }
-            Some('/') => {
+            Some(b'/') => {
                 self.advance();
                 Ok('/')
             }
-            Some('b') => {
+            Some(b'b') => {
                 self.advance();
                 Ok('\u{0008}')
             }
-            Some('f') => {
+            Some(b'f') => {
                 self.advance();
                 Ok('\u{000C}')
             }
-            Some('n') => {
+            Some(b'n') => {
                 self.advance();
                 Ok('\n')
             }
-            Some('r') => {
+            Some(b'r') => {
                 self.advance();
                 Ok('\r')
             }
-            Some('t') => {
+            Some(b't') => {
                 self.advance();
                 Ok('\t')
             }
-            Some('u') => {
+            Some(b'u') => {
                 self.advance();
                 self.parse_unicode_escape()
             }
-            Some(ch) => Err(JsonError::InvalidEscape {
-                char: ch,
+            Some(b) => Err(JsonError::InvalidEscape {
+                char: b as char,
                 position: self.position,
             }),
             None => Err(JsonError::UnexpectedEndOfInput {
@@ -265,111 +336,93 @@ impl Tokenizer {
 
     fn parse_unicode_escape(&mut self) -> Result<char, JsonError> {
         let hex_start = self.position;
-        // \uXXXX = 4 hex digits
-        let mut hex_str = String::with_capacity(4);
-        for _ in 0..4 {
-            match self.peek() {
-                Some(h) => {
-                    hex_str.push(h);
-                    self.advance();
-                }
-                None => {
-                    return Err(JsonError::InvalidUnicode {
-                        sequence: hex_str,
-                        position: hex_start,
-                    });
-                }
-            }
+        // \uXXXX = 4 hex digits, check we have enough bytes
+        if self.position + 4 > self.input.len() {
+            let available = &self.input[self.position..];
+            return Err(JsonError::InvalidUnicode {
+                sequence: available.to_string(),
+                position: hex_start,
+            });
         }
-        match u32::from_str_radix(&hex_str, 16) {
+        let hex_str = &self.input[self.position..self.position + 4];
+        self.position += 4;
+        match u32::from_str_radix(hex_str, 16) {
             Ok(code_point) => match char::from_u32(code_point) {
                 Some(unicode_char) => Ok(unicode_char),
                 None => Err(JsonError::InvalidUnicode {
-                    sequence: hex_str,
+                    sequence: hex_str.to_string(),
                     position: hex_start,
                 }),
             },
             Err(_) => Err(JsonError::InvalidUnicode {
-                sequence: hex_str,
+                sequence: hex_str.to_string(),
                 position: hex_start,
             }),
         }
     }
 
     fn parse_keyword(&mut self) -> Result<Token, JsonError> {
-        let start_position = self.position;
-        // keywords are "true", "false", or "null" — "false" is the longest at 5
-        let mut word = String::with_capacity(5);
-        while let Some(c) = self.peek() {
-            match c {
-                'a'..='z' => {
-                    word.push(c);
+        let start = self.position;
+        while let Some(b) = self.peek() {
+            match b {
+                b'a'..=b'z' => {
                     self.advance();
                 }
                 _ => break,
             }
         }
-        match word.as_str() {
+        let word = &self.input[start..self.position];
+        match word {
             "true" => Ok(Token::Boolean(true)),
             "false" => Ok(Token::Boolean(false)),
             "null" => Ok(Token::Null),
             _ => Err(JsonError::UnexpectedToken {
                 expected: "valid JSON token".to_string(),
-                found: word,
-                position: start_position,
+                found: word.to_string(),
+                position: start,
             }),
         }
     }
 
     fn parse_number(&mut self) -> Result<f64, JsonError> {
-        let start_position = self.position;
-        // TODO: estimate — covers the longest f64 like -1.7976931348623157e+308, typical numbers are much shorter
-        let mut num_str = String::with_capacity(24);
-        while let Some(c) = self.peek() {
-            match c {
-                '0'..='9' | '.' | '-' => {
-                    num_str.push(c);
+        let start = self.position;
+        while let Some(b) = self.peek() {
+            match b {
+                b'0'..=b'9' | b'.' | b'-' => {
                     self.advance();
                 }
                 _ => break,
             }
         }
+        let num_str = &self.input[start..self.position];
         if num_str.starts_with('.') || num_str.starts_with("-.") {
             return Err(JsonError::UnexpectedToken {
                 expected: "valid JSON token".to_string(),
-                found: num_str,
-                position: start_position,
+                found: num_str.to_string(),
+                position: start,
             });
         }
         match num_str.parse::<f64>() {
             Ok(n) => Ok(n),
             Err(_) => Err(JsonError::InvalidNumber {
-                value: num_str,
-                position: start_position,
+                value: num_str.to_string(),
+                position: start,
             }),
         }
     }
 
-    fn advance(&mut self) -> Option<char> {
-        if self.is_at_end() {
+    fn advance(&mut self) -> Option<u8> {
+        if self.position >= self.input.len() {
             None
         } else {
-            let ch = self.input[self.position];
+            let b = self.input.as_bytes()[self.position];
             self.position += 1;
-            Some(ch)
+            Some(b)
         }
     }
 
-    fn peek(&self) -> Option<char> {
-        if self.is_at_end() {
-            None
-        } else {
-            Some(self.input[self.position])
-        }
-    }
-
-    fn is_at_end(&self) -> bool {
-        self.position >= self.input.len()
+    fn peek(&self) -> Option<u8> {
+        self.input.as_bytes().get(self.position).copied()
     }
 }
 

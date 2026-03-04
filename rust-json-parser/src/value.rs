@@ -282,18 +282,28 @@ impl JsonFormat for f64 {
 
 impl JsonFormat for String {
     fn to_json_string(&self) -> String {
-        // content + 2 quotes (strings with escapes may grow beyond this)
         let mut result = String::with_capacity(self.len() + 2);
         result.push('"');
-        for ch in self.chars() {
-            match ch {
-                '"' => result.push_str("\\\""),
-                '\\' => result.push_str("\\\\"),
-                '\n' => result.push_str("\\n"),
-                '\r' => result.push_str("\\r"),
-                '\t' => result.push_str("\\t"),
-                _ => result.push(ch),
+        // Scan bytes for escape chars, copy unescaped runs via push_str.
+        let bytes = self.as_bytes();
+        let mut seg_start = 0;
+        for i in 0..bytes.len() {
+            let escape = match bytes[i] {
+                b'"' => "\\\"",
+                b'\\' => "\\\\",
+                b'\n' => "\\n",
+                b'\r' => "\\r",
+                b'\t' => "\\t",
+                _ => continue,
+            };
+            if seg_start < i {
+                result.push_str(&self[seg_start..i]);
             }
+            result.push_str(escape);
+            seg_start = i + 1;
+        }
+        if seg_start < self.len() {
+            result.push_str(&self[seg_start..]);
         }
         result.push('"');
         result
@@ -302,7 +312,8 @@ impl JsonFormat for String {
 
 impl JsonFormat for [JsonValue] {
     fn to_json_string(&self) -> String {
-        let mut result = String::new();
+        // TODO: estimate, ~8 bytes per element (~6 value + comma + space)
+        let mut result = String::with_capacity(self.len() * 8);
         result.push('[');
         for (i, item) in self.iter().enumerate() {
             if i > 0 {
@@ -317,7 +328,8 @@ impl JsonFormat for [JsonValue] {
 
 impl JsonFormat for HashMap<String, JsonValue> {
     fn to_json_string(&self) -> String {
-        let mut result = String::new();
+        // TODO: estimate, ~16 bytes per entry (~6 key + 2 quotes + colon + ~6 value + comma)
+        let mut result = String::with_capacity(self.len() * 16);
         result.push('{');
         let mut first = true;
         for (key, value) in self {

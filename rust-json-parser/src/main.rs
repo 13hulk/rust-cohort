@@ -1,11 +1,18 @@
 //! JSON parser demo showcasing all features.
 
+use std::time::Instant;
+
 use rust_json_parser::error::JsonError;
 use rust_json_parser::parser::{JsonParser, parse_json};
 use rust_json_parser::tokenizer::Tokenizer;
 use rust_json_parser::value::JsonValue;
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && args[1] == "--benchmark" {
+        run_benchmark();
+        return;
+    }
     let document = show_parsing();
     show_object_access(&document);
     show_array_access(&document);
@@ -220,4 +227,57 @@ fn show_python_bindings() {
     println!("    data = rjp.parse_json('{{\"key\": \"value\"}}')");
     println!("    print(rjp.dumps(data, indent=2))");
     println!("    python -m rust_json_parser data.json");
+}
+
+fn run_benchmark() {
+    println!("=== Pure Rust JSON Parser Benchmark (release build) ===\n");
+
+    let files = [
+        ("small.json", "Single flat object with 6 fields"),
+        ("medium.json", "Array of 75 objects with nested address"),
+        ("large.json", "Array of 750 objects with nested address"),
+        (
+            "xlarge.json",
+            "1230 objects with long strings and nested metadata",
+        ),
+        (
+            "nested.json",
+            "Deeply nested objects and arrays (228 levels)",
+        ),
+    ];
+
+    for (filename, description) in &files {
+        let path = format!("benchmarks/{}", filename);
+        let input = match std::fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(e) => {
+                println!("  Skipping {} -- {}", filename, e);
+                continue;
+            }
+        };
+
+        println!(
+            "--- {} -- {} -- {} bytes ---\n",
+            filename,
+            description,
+            input.len()
+        );
+
+        let mut parser = JsonParser::new_reusable();
+        for iterations in [100, 1_000, 10_000] {
+            let start = Instant::now();
+            for _ in 0..iterations {
+                let _ = parser.reparse(&input).unwrap();
+            }
+            let elapsed = start.elapsed();
+            let per_iter_us = elapsed.as_secs_f64() * 1_000_000.0 / iterations as f64;
+            println!(
+                "  {:>6} iterations: {:.6}s  ({:.1} us/iter)",
+                iterations,
+                elapsed.as_secs_f64(),
+                per_iter_us,
+            );
+        }
+        println!();
+    }
 }
