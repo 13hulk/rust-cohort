@@ -1,5 +1,10 @@
 """Rust JSON parser with Python bindings via PyO3."""
 
-from rust_json_parser._rust_json_parser import dumps, parse_json, parse_json_file
+from rust_json_parser._rust_json_parser import (
+    benchmark_performance,
+    dumps,
+    parse_json,
+    parse_json_file,
+)
 
-__all__ = ["parse_json", "parse_json_file", "dumps"]
+__all__ = ["parse_json", "parse_json_file", "dumps", "benchmark_performance"]
