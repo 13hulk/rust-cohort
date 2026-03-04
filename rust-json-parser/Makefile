@@ -1,5 +1,6 @@
 .PHONY: help build test run fmt fmt-check clippy check clean doc doc-test pre-commit-install all
 .PHONY: python-build python-test python-fmt python-fmt-check python-lint python-lint-fix python-typecheck python-run python-all
+.PHONY: benchmark rust-benchmark benchmark-data
 
 help:
 	@echo "Rust commands:"
@@ -25,6 +26,10 @@ help:
 	@echo "  make python-typecheck   - Type check Python code with ty"
 	@echo "  make python-run         - Run the Python CLI demo"
 	@echo "  make python-all         - Build, format, lint, typecheck, test"
+	@echo ""
+	@echo "Benchmarks:"
+	@echo "  make benchmark          - Run benchmarks (release build) and save results"
+	@echo "  make benchmark-data    - Regenerate benchmark sample data files"
 	@echo ""
 	@echo "Other:"
 	@echo "  make pre-commit-install - Install pre-commit hooks"
@@ -87,5 +92,15 @@ python-run:
 	uv run python -m rust_json_parser '{"name": "Alice", "age": 30, "tags": ["rust", "python"], "active": true}'
 
 python-all: python-build python-fmt python-lint python-typecheck python-test
+
+benchmark: benchmark-data
+	uv run maturin develop --release
+	uv run python -m rust_json_parser --benchmark
+
+rust-benchmark: benchmark-data
+	cargo run --release --no-default-features -- --benchmark
+
+benchmark-data:
+	uv run python benchmarks/generate.py
 
 all: fmt clippy test build
