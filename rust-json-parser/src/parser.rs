@@ -1,4 +1,14 @@
-//! JSON parser module for parsing JSON values.
+//! JSON parser module.
+//!
+//! This module implements the second phase of the two-phase JSON parsing
+//! pipeline. It takes the token stream produced by
+//! [`crate::tokenizer::Tokenizer`] and builds a
+//! [`JsonValue`](crate::value::JsonValue) tree using recursive descent.
+//!
+//! The main entry point is the [`parse_json`](crate::parser::parse_json)
+//! convenience function, which tokenizes and parses in a single call.
+//! For more control, create a [`JsonParser`](crate::parser::JsonParser)
+//! directly.
 
 use std::collections::HashMap;
 
@@ -6,12 +16,45 @@ use crate::error::JsonError;
 use crate::tokenizer::{Token, Tokenizer};
 use crate::value::JsonValue;
 
-/// Convenience function that tokenizes and parses a JSON input string.
+/// Parses a JSON string into a [`JsonValue`].
+///
+/// This is a convenience function that creates a parser and parses in one step.
+///
+/// # Examples
+///
+/// ```
+/// use rust_json_parser::parser::parse_json;
+///
+/// let value = parse_json(r#"{"key": "value"}"#)?;
+/// assert!(value.get("key").is_some());
+/// # Ok::<(), rust_json_parser::error::JsonError>(())
+/// ```
+///
+/// # Errors
+///
+/// Returns [`JsonError`] if the input is not valid JSON.
 pub fn parse_json(input: &str) -> Result<JsonValue, JsonError> {
     JsonParser::new(input)?.parse()
 }
 
-/// Holds tokens and current position for parsing.
+/// A recursive descent parser that converts a token stream into a JSON
+/// value tree.
+///
+/// The parser is created from a JSON input string. During construction it
+/// tokenizes the input via [`Tokenizer`], then
+/// [`parse`](Self::parse) walks the token stream to produce a
+/// [`JsonValue`].
+///
+/// # Examples
+///
+/// ```
+/// use rust_json_parser::parser::JsonParser;
+///
+/// let mut parser = JsonParser::new(r#"{"key": "value"}"#)?;
+/// let value = parser.parse()?;
+/// assert_eq!(value.get("key").unwrap().as_str(), Some("value"));
+/// # Ok::<(), rust_json_parser::error::JsonError>(())
+/// ```
 pub struct JsonParser {
     tokens: Vec<Token>,
     current: usize,
@@ -19,6 +62,16 @@ pub struct JsonParser {
 
 impl JsonParser {
     /// Creates a new parser by tokenizing the given JSON input string.
+    ///
+    /// The input is first passed to [`Tokenizer`] to produce tokens. If
+    /// tokenization succeeds, the parser is ready to call
+    /// [`parse`](Self::parse).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JsonError`] if the input contains
+    /// invalid tokens (e.g., unrecognized characters, malformed strings, or
+    /// invalid numbers).
     pub fn new(input: &str) -> Result<Self, JsonError> {
         let mut tokenizer = Tokenizer::new(input);
         let tokens = tokenizer.tokenize()?;
@@ -26,6 +79,15 @@ impl JsonParser {
     }
 
     /// Parses the token stream and returns the top-level JSON value.
+    ///
+    /// After parsing the first value, this method verifies that no trailing
+    /// tokens remain. Exactly one JSON value is expected per input.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JsonError`] if the tokens do not
+    /// form valid JSON, if the input is empty, or if unexpected tokens appear
+    /// after the first value.
     pub fn parse(&mut self) -> Result<JsonValue, JsonError> {
         let value = self.parse_value()?;
         if !self.is_at_end() {

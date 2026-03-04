@@ -1,41 +1,89 @@
 //! JSON tokenizer module.
+//!
+//! This module implements the first phase of the two-phase JSON parsing
+//! pipeline. The [`Tokenizer`](crate::tokenizer::Tokenizer) scans raw JSON
+//! text character by character and converts it into a flat sequence of
+//! [`Token`](crate::tokenizer::Token) values. These tokens are then consumed
+//! by the parser in [`crate::parser`] to build a
+//! [`JsonValue`](crate::value::JsonValue) tree.
+//!
+//! The tokenizer handles all JSON lexical elements including structural
+//! characters, string escape sequences (8 basic escapes plus `\uXXXX`
+//! unicode escapes), numbers, booleans, and null.
 
 use crate::error::JsonError;
 
-/// Represents a single JSON token.
+/// Represents a single semantic token produced by the JSON tokenizer.
+///
+/// Tokens fall into three categories:
+///
+/// - **Structural tokens** -- delimiters and separators that define JSON
+///   structure (`LeftBrace`, `RightBrace`, `LeftBracket`, `RightBracket`,
+///   `Colon`, `Comma`).
+/// - **Literal tokens** -- the JSON keywords `true`, `false`, and `null`
+///   (`Boolean`, `Null`).
+/// - **Value tokens** -- strings and numbers that carry parsed data
+///   (`String`, `Number`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    /// Opening brace `{`.
+    /// The `{` character, opening a JSON object.
     LeftBrace,
-    /// Closing brace `}`.
+    /// The `}` character, closing a JSON object.
     RightBrace,
-    /// Opening bracket `[`.
+    /// The `[` character, opening a JSON array.
     LeftBracket,
-    /// Closing bracket `]`.
+    /// The `]` character, closing a JSON array.
     RightBracket,
-    /// Comma `,`.
+    /// The `,` character, separating elements in arrays and key-value pairs
+    /// in objects.
     Comma,
-    /// Colon `:`.
+    /// The `:` character, separating a key from its value inside an object.
     Colon,
 
-    /// A string literal, e.g. `"hello"`.
+    /// A JSON string value with all escape sequences resolved.
+    ///
+    /// The contained `String` holds the unescaped content (without the
+    /// surrounding double quotes). For example, the JSON text `"hello\nworld"`
+    /// produces `Token::String("hello\nworld".to_string())`.
     String(String),
-    /// A numeric literal, e.g. `42`, `3.14`, `-10`.
+    /// A JSON number value parsed as a 64-bit floating point.
+    ///
+    /// Integers, decimals, and negative numbers are all represented as `f64`.
+    /// For example, `42` becomes `Token::Number(42.0)`.
     Number(f64),
-    /// A boolean literal (`true` or `false`).
+    /// A JSON boolean value (`true` or `false`).
     Boolean(bool),
-    /// The `null` literal.
+    /// The JSON `null` literal.
     Null,
 }
 
-/// Holds the input and current position for tokenization.
+/// A character-by-character scanner that converts JSON text into tokens.
+///
+/// The tokenizer owns the input as a `Vec<char>` and walks through it
+/// one character at a time, producing a `Vec<Token>` on success. It
+/// recognizes all JSON lexical elements: structural characters, strings
+/// (with escape sequence handling), numbers, booleans, and null.
+///
+/// # Examples
+///
+/// ```
+/// use rust_json_parser::tokenizer::Tokenizer;
+///
+/// let tokens = Tokenizer::new("[1, 2, 3]").tokenize()?;
+/// assert_eq!(tokens.len(), 7); // [ 1 , 2 , 3 ]
+/// # Ok::<(), rust_json_parser::error::JsonError>(())
+/// ```
 pub struct Tokenizer {
     input: Vec<char>,
     position: usize,
 }
 
 impl Tokenizer {
-    /// Creates a new tokenizer for the given JSON input string.
+    /// Creates a new tokenizer from a JSON input string.
+    ///
+    /// The input is converted to a `Vec<char>` for character-by-character
+    /// scanning. No validation is performed until [`tokenize`](Self::tokenize)
+    /// is called.
     pub fn new(input: &str) -> Self {
         Self {
             input: input.chars().collect(),
@@ -43,7 +91,30 @@ impl Tokenizer {
         }
     }
 
-    /// Consumes the input and produces a vector of tokens.
+    /// Scans the input and produces a vector of [`Token`] values.
+    ///
+    /// This method consumes the entire input string, skipping whitespace and
+    /// converting each JSON lexical element into the corresponding token.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_json_parser::tokenizer::{Token, Tokenizer};
+    ///
+    /// let tokens = Tokenizer::new(r#"{"key": true}"#).tokenize()?;
+    /// assert_eq!(tokens[0], Token::LeftBrace);
+    /// assert_eq!(tokens[1], Token::String("key".to_string()));
+    /// assert_eq!(tokens[2], Token::Colon);
+    /// assert_eq!(tokens[3], Token::Boolean(true));
+    /// assert_eq!(tokens[4], Token::RightBrace);
+    /// # Ok::<(), rust_json_parser::error::JsonError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`JsonError`] if the input contains
+    /// invalid characters, malformed strings, invalid escape sequences,
+    /// invalid numbers, or unrecognized keywords.
     pub fn tokenize(&mut self) -> Result<Vec<Token>, JsonError> {
         let mut tokens = Vec::new();
 
