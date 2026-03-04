@@ -1,8 +1,38 @@
-//! JSON parser library.
+#![warn(missing_docs)]
 
+//! # Rust JSON Parser
+//!
+//! A pure Rust JSON parser with zero external dependencies.
+//!
+//! This crate provides a two-phase JSON parsing pipeline:
+//! tokenization of JSON text into semantic tokens, followed by
+//! recursive descent parsing into a value tree.
+//!
+//! ## Features
+//!
+//! - Full JSON specification support (RFC 8259)
+//! - Detailed error messages with position information
+//! - No external dependencies for the core parser
+//! - Optional Python bindings via PyO3
+//!
+//! ## Quick Start
+//!
+//! ```
+//! use rust_json_parser::parser::parse_json;
+//!
+//! let value = parse_json(r#"{"name": "Alice", "age": 30}"#)?;
+//! assert_eq!(value.get("name").unwrap().as_str(), Some("Alice"));
+//! assert_eq!(value.get("age").unwrap().as_f64(), Some(30.0));
+//! # Ok::<(), rust_json_parser::error::JsonError>(())
+//! ```
+
+/// Error types for JSON parsing.
 pub mod error;
+/// Parser for converting tokens into JSON values.
 pub mod parser;
+/// Tokenizer for converting JSON text into tokens.
 pub mod tokenizer;
+/// JSON value types and accessor methods.
 pub mod value;
 
 #[cfg(feature = "python")]

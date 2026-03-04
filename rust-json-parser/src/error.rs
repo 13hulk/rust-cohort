@@ -5,25 +5,41 @@ use std::fmt;
 /// Represents errors that can occur during JSON parsing.
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonError {
+    /// Found a token that was not expected at the current position.
     UnexpectedToken {
+        /// What the parser expected to find.
         expected: String,
+        /// What was actually found.
         found: String,
+        /// Byte position in the input where the error occurred.
         position: usize,
     },
+    /// Reached end of input while still expecting more tokens.
     UnexpectedEndOfInput {
+        /// What the parser expected to find.
         expected: String,
+        /// Byte position in the input where the error occurred.
         position: usize,
     },
+    /// A numeric literal could not be parsed as a valid number.
     InvalidNumber {
+        /// The invalid number string.
         value: String,
+        /// Byte position in the input where the error occurred.
         position: usize,
     },
+    /// An unrecognized escape sequence was found in a string.
     InvalidEscape {
+        /// The character following the backslash.
         char: char,
+        /// Byte position in the input where the error occurred.
         position: usize,
     },
+    /// A `\uXXXX` escape contained an invalid hex sequence.
     InvalidUnicode {
+        /// The invalid hex digit sequence.
         sequence: String,
+        /// Byte position in the input where the error occurred.
         position: usize,
     },
 }
