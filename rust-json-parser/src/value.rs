@@ -266,6 +266,7 @@ impl JsonValue {
 
 /// Trait for converting a value into its JSON string representation.
 pub(crate) trait JsonFormat {
+    /// Returns the value serialized as a JSON string.
     fn to_json_string(&self) -> String;
 }
 
@@ -281,7 +282,8 @@ impl JsonFormat for f64 {
 
 impl JsonFormat for String {
     fn to_json_string(&self) -> String {
-        let mut result = String::new();
+        // content + 2 quotes (strings with escapes may grow beyond this)
+        let mut result = String::with_capacity(self.len() + 2);
         result.push('"');
         for ch in self.chars() {
             match ch {
