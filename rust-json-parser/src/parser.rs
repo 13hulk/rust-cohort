@@ -128,7 +128,9 @@ impl JsonParser {
 
     fn parse_array(&mut self) -> Result<JsonValue, JsonError> {
         self.advance(); // consume opening '['
-        let mut elements: Vec<JsonValue> = Vec::new();
+        // TODO: estimate — assumes ~2 tokens per element (value + comma), overestimates for nested structures
+        let remaining = (self.tokens.len() - self.current) / 2;
+        let mut elements: Vec<JsonValue> = Vec::with_capacity(remaining);
 
         // Empty array case
         if matches!(self.peek(), Some(Token::RightBracket)) {
@@ -179,7 +181,9 @@ impl JsonParser {
 
     fn parse_object(&mut self) -> Result<JsonValue, JsonError> {
         self.advance(); // consume opening '{'
-        let mut map: HashMap<String, JsonValue> = HashMap::new();
+        // TODO: estimate — assumes ~4 tokens per entry (key, colon, value, comma), overestimates for nested values
+        let remaining = (self.tokens.len() - self.current) / 4;
+        let mut map: HashMap<String, JsonValue> = HashMap::with_capacity(remaining);
 
         // Empty object case
         if matches!(self.peek(), Some(Token::RightBrace)) {

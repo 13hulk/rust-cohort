@@ -116,7 +116,8 @@ impl Tokenizer {
     /// invalid characters, malformed strings, invalid escape sequences,
     /// invalid numbers, or unrecognized keywords.
     pub fn tokenize(&mut self) -> Result<Vec<Token>, JsonError> {
-        let mut tokens = Vec::new();
+        // TODO: estimate — rough guess, ~3 chars per token on average
+        let mut tokens = Vec::with_capacity(self.input.len() / 3);
 
         while let Some(ch) = self.peek() {
             match ch {
@@ -186,7 +187,8 @@ impl Tokenizer {
     fn parse_string(&mut self) -> Result<String, JsonError> {
         let string_start = self.position;
         self.advance(); // consume opening quote
-        let mut s = String::new();
+        // TODO: estimate — most JSON strings are object keys or short values, 32 handles those without reallocation
+        let mut s = String::with_capacity(32);
         loop {
             match self.peek() {
                 Some('"') => {
@@ -263,7 +265,8 @@ impl Tokenizer {
 
     fn parse_unicode_escape(&mut self) -> Result<char, JsonError> {
         let hex_start = self.position;
-        let mut hex_str = String::new();
+        // \uXXXX = 4 hex digits
+        let mut hex_str = String::with_capacity(4);
         for _ in 0..4 {
             match self.peek() {
                 Some(h) => {
@@ -295,7 +298,8 @@ impl Tokenizer {
 
     fn parse_keyword(&mut self) -> Result<Token, JsonError> {
         let start_position = self.position;
-        let mut word = String::new();
+        // keywords are "true", "false", or "null" — "false" is the longest at 5
+        let mut word = String::with_capacity(5);
         while let Some(c) = self.peek() {
             match c {
                 'a'..='z' => {
@@ -319,7 +323,8 @@ impl Tokenizer {
 
     fn parse_number(&mut self) -> Result<f64, JsonError> {
         let start_position = self.position;
-        let mut num_str = String::new();
+        // TODO: estimate — covers the longest f64 like -1.7976931348623157e+308, typical numbers are much shorter
+        let mut num_str = String::with_capacity(24);
         while let Some(c) = self.peek() {
             match c {
                 '0'..='9' | '.' | '-' => {

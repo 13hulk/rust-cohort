@@ -1,5 +1,7 @@
 //! Python bindings for the JSON parser using PyO3.
 
+use std::collections::HashMap;
+use std::fs;
 use std::time::Instant;
 
 use pyo3::exceptions::PyValueError;
@@ -57,7 +59,7 @@ fn parse_json(py: Python<'_>, input: &str) -> PyResult<PyObject> {
 /// Parse a JSON file and return a Python object.
 #[pyfunction]
 fn parse_json_file(py: Python<'_>, path: &str) -> PyResult<PyObject> {
-    let contents = std::fs::read_to_string(path)?;
+    let contents = fs::read_to_string(path)?;
     let value = crate::parser::JsonParser::new(&contents)?.parse()?;
     Ok(value.into_pyobject(py)?.unbind())
 }
@@ -80,14 +82,14 @@ fn py_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<JsonValue> {
         return Ok(JsonValue::String(s));
     }
     if let Ok(list) = obj.downcast::<PyList>() {
-        let mut items = Vec::new();
+        let mut items = Vec::with_capacity(list.len());
         for item in list.iter() {
             items.push(py_to_json_value(&item)?);
         }
         return Ok(JsonValue::Array(items));
     }
     if let Ok(dict) = obj.downcast::<PyDict>() {
-        let mut map = std::collections::HashMap::new();
+        let mut map = HashMap::with_capacity(dict.len());
         for (key, value) in dict.iter() {
             let key_str = key.extract::<String>()?;
             map.insert(key_str, py_to_json_value(&value)?);
@@ -116,8 +118,8 @@ fn dumps(obj: &Bound<'_, PyAny>, indent: Option<usize>) -> PyResult<String> {
 
 /// Recursively format a JsonValue with indentation.
 ///
-/// Primitives reuse Display (which delegates to JsonFormat).
-/// Array and Object need custom handling for indentation and sorted keys.
+/// Primitives reuse Display. Array and Object need custom handling
+/// for indentation and sorted keys.
 fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
     match value {
         JsonValue::Array(arr) => {
@@ -126,7 +128,10 @@ fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
             }
             let inner_indent = " ".repeat(indent_size * (depth + 1));
             let outer_indent = " ".repeat(indent_size * depth);
-            let mut result = String::new();
+            // estimate: +8 per element for value~6 + comma + newline, +4 for "[\n" and "\n]"
+            let mut result = String::with_capacity(
+                arr.len() * (inner_indent.len() + 8) + outer_indent.len() + 4,
+            );
             result.push_str("[\n");
             for (i, item) in arr.iter().enumerate() {
                 result.push_str(&inner_indent);
@@ -146,7 +151,10 @@ fn pretty_print(value: &JsonValue, indent_size: usize, depth: usize) -> String {
             }
             let inner_indent = " ".repeat(indent_size * (depth + 1));
             let outer_indent = " ".repeat(indent_size * depth);
-            let mut result = String::new();
+            // estimate: +20 per entry for "key": value,\n (~6 key + 2 colon-space + ~8 value + 2 comma+newline), +4 for "{\n" and "\n}"
+            let mut result = String::with_capacity(
+                map.len() * (inner_indent.len() + 20) + outer_indent.len() + 4,
+            );
             result.push_str("{\n");
             let mut entries: Vec<(&String, &JsonValue)> = map.iter().collect();
             entries.sort_by_key(|(k, _)| *k);

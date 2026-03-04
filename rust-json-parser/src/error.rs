@@ -6,6 +6,7 @@
 //! input where the error was detected, making it straightforward to report
 //! precise error locations to the caller.
 
+use std::error;
 use std::fmt;
 
 /// Represents errors that can occur during JSON tokenization and parsing.
@@ -133,7 +134,7 @@ impl fmt::Display for JsonError {
     }
 }
 
-impl std::error::Error for JsonError {}
+impl error::Error for JsonError {}
 
 #[cfg(test)]
 mod tests {
