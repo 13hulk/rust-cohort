@@ -1,11 +1,13 @@
 //! JSON value types and accessor methods for parsed JSON data.
 //!
-//! This module provides the [`JsonValue`] enum, which represents the six
-//! fundamental JSON types: null, booleans, numbers, strings, arrays, and
-//! objects. After parsing JSON text with [`crate::parser::parse_json`],
-//! the result is a tree of `JsonValue` nodes that can be inspected using
-//! accessor methods like [`JsonValue::as_str`], [`JsonValue::get`], and
-//! [`JsonValue::get_index`].
+//! This module provides the [`JsonValue`](crate::value::JsonValue) enum,
+//! which represents the six fundamental JSON types: null, booleans, numbers,
+//! strings, arrays, and objects. After parsing JSON text with
+//! [`crate::parser::parse_json`], the result is a tree of `JsonValue` nodes
+//! that can be inspected using accessor methods like
+//! [`JsonValue::as_str`](crate::value::JsonValue::as_str),
+//! [`JsonValue::get`](crate::value::JsonValue::get), and
+//! [`JsonValue::get_index`](crate::value::JsonValue::get_index).
 
 use std::collections::HashMap;
 use std::fmt;
