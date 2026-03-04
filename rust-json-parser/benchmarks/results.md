@@ -1,6 +1,6 @@
 # Benchmark Results
 
-**Date:** 2026-03-04 19:18:23  
+**Date:** 2026-03-04 19:44:06  
 **Platform:** macOS-15.7.2-arm64-arm-64bit-Mach-O  
 **Python:** 3.14.3  
 **Build:** release  
@@ -31,16 +31,16 @@ Each file is parsed repeatedly at two iteration counts (100, 1000) to measure bo
 
 | File | Iterations | Rust (s) | Python json (s) | simplejson (s) | Rust vs json | Rust vs simplejson |
 |------|------------|----------|-----------------|----------------|--------------|---------------------|
-| small.json | 100 | 0.000106 | 0.000213 | 0.001428 | 2.00x faster | 13.43x faster |
-| small.json | 1,000 | 0.000704 | 0.001641 | 0.011088 | 2.33x faster | 15.75x faster |
-| medium.json | 100 | 0.006587 | 0.005269 | 0.068515 | 1.25x slower | 10.40x faster |
-| medium.json | 1,000 | 0.051115 | 0.046113 | 0.678459 | 1.11x slower | 13.27x faster |
-| large.json | 100 | 0.051143 | 0.047276 | 0.682032 | 1.08x slower | 13.34x faster |
-| large.json | 1,000 | 0.513726 | 0.468484 | 6.941111 | 1.10x slower | 13.51x faster |
-| xlarge.json | 100 | 0.228639 | 0.163425 | 2.359384 | 1.40x slower | 10.32x faster |
-| xlarge.json | 1,000 | 2.179846 | 1.645709 | 24.203882 | 1.32x slower | 11.10x faster |
-| nested.json | 100 | 0.006333 | 0.005368 | 0.083907 | 1.18x slower | 13.25x faster |
-| nested.json | 1,000 | 0.064188 | 0.053686 | 0.836116 | 1.20x slower | 13.03x faster |
+| small.json | 100 | 0.000099 | 0.000276 | 0.001617 | 2.78x faster | 16.27x faster |
+| small.json | 1,000 | 0.000897 | 0.001825 | 0.012850 | 2.04x faster | 14.33x faster |
+| medium.json | 100 | 0.006945 | 0.005267 | 0.073469 | 1.32x slower | 10.58x faster |
+| medium.json | 1,000 | 0.054699 | 0.045556 | 0.727500 | 1.20x slower | 13.30x faster |
+| large.json | 100 | 0.054167 | 0.047456 | 0.729585 | 1.14x slower | 13.47x faster |
+| large.json | 1,000 | 0.531420 | 0.467366 | 7.163010 | 1.14x slower | 13.48x faster |
+| xlarge.json | 100 | 0.243130 | 0.163195 | 2.491205 | 1.49x slower | 10.25x faster |
+| xlarge.json | 1,000 | 2.023176 | 1.639014 | 24.868609 | 1.23x slower | 12.29x faster |
+| nested.json | 100 | 0.006636 | 0.005176 | 0.084177 | 1.28x slower | 12.68x faster |
+| nested.json | 1,000 | 0.065130 | 0.050914 | 0.837780 | 1.28x slower | 12.86x faster |
 
 ## Summary
 
@@ -48,14 +48,14 @@ Each file is parsed repeatedly at two iteration counts (100, 1000) to measure bo
 
 | Iterations | Rust Total (s) | Python json Total (s) | simplejson Total (s) |
 |------------|----------------|----------------------|----------------------|
-| 100 | 0.292809 | 0.221551 | 3.195264 |
-| 1,000 | 2.809578 | 2.215631 | 32.670656 |
+| 100 | 0.310978 | 0.221369 | 3.380054 |
+| 1,000 | 2.675322 | 2.204674 | 33.609748 |
 
 ### Overall Totals
 
 | Parser | Total Time (s) |
 |--------|----------------|
-| Rust | 3.102387 |
-| Python json | 2.437183 |
-| simplejson | 35.865920 |
-| **Total benchmark time** | **41.405490** |
+| Rust | 2.986300 |
+| Python json | 2.426043 |
+| simplejson | 36.989802 |
+| **Total benchmark time** | **42.402145** |
