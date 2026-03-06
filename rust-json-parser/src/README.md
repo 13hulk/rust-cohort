@@ -41,7 +41,7 @@ let tokens = Tokenizer::new(r#"{"key": 42}"#).tokenize().unwrap();
 
 ### Parser (`parser.rs`)
 
-Recursive descent parser that walks the token stream and builds a value tree. Pre-allocates arrays with `Vec::with_capacity` and objects with `HashMap::with_capacity` based on remaining token count estimates. Supports buffer reuse via `new_reusable()` and `reparse()` for benchmark loops.
+Recursive descent parser that walks the token stream and builds a value tree. Pre-allocates arrays with `Vec::with_capacity` and objects with `HashMap::with_capacity` based on remaining token count estimates. Supports buffer reuse via `new_empty()` and `reparse()` for benchmark loops.
 
 ```rust
 use rust_json_parser::parser::{parse_json, JsonParser};
