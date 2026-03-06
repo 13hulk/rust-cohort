@@ -190,7 +190,7 @@ fn benchmark_performance(
     json_str: &str,
     iterations: usize,
 ) -> PyResult<(f64, f64, f64)> {
-    let mut parser = crate::parser::JsonParser::new_reusable();
+    let mut parser = crate::parser::JsonParser::new_empty();
 
     // Warmup Rust parser (100 iterations)
     for _ in 0..100 {

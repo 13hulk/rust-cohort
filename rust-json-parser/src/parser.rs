@@ -96,7 +96,7 @@ impl JsonParser {
     /// use rust_json_parser::parser::JsonParser;
     /// use rust_json_parser::value::JsonValue;
     ///
-    /// let mut parser = JsonParser::new_reusable();
+    /// let mut parser = JsonParser::new_empty();
     /// let v1 = parser.reparse("[1, 2, 3]")?;
     /// assert_eq!(v1.get_index(0), Some(&JsonValue::Number(1.0)));
     ///
@@ -104,7 +104,7 @@ impl JsonParser {
     /// assert_eq!(v2, JsonValue::Boolean(true));
     /// # Ok::<(), rust_json_parser::error::JsonError>(())
     /// ```
-    pub fn new_reusable() -> Self {
+    pub fn new_empty() -> Self {
         Self {
             tokens: Vec::new(),
             tokenizer: Tokenizer::new(""),
@@ -124,7 +124,7 @@ impl JsonParser {
     /// ```
     /// use rust_json_parser::parser::JsonParser;
     ///
-    /// let mut parser = JsonParser::new_reusable();
+    /// let mut parser = JsonParser::new_empty();
     /// let value = parser.reparse(r#"{"key": "value"}"#)?;
     /// assert_eq!(value.get("key").and_then(|v| v.as_str()), Some("value"));
     /// # Ok::<(), rust_json_parser::error::JsonError>(())

@@ -300,7 +300,7 @@ fn run_benchmark() {
             input.len()
         );
 
-        let mut parser = JsonParser::new_reusable();
+        let mut parser = JsonParser::new_empty();
         for iterations in [100, 1_000, 10_000] {
             let start = Instant::now();
             for _ in 0..iterations {
