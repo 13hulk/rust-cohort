@@ -52,7 +52,7 @@ pub fn parse_json(input: &str) -> Result<JsonValue, JsonError> {
 ///
 /// let mut parser = JsonParser::new(r#"{"key": "value"}"#)?;
 /// let value = parser.parse()?;
-/// assert_eq!(value.get("key").unwrap().as_str(), Some("value"));
+/// assert_eq!(value.get("key").and_then(|v| v.as_str()), Some("value"));
 /// # Ok::<(), rust_json_parser::error::JsonError>(())
 /// ```
 pub struct JsonParser {
@@ -126,7 +126,7 @@ impl JsonParser {
     ///
     /// let mut parser = JsonParser::new_reusable();
     /// let value = parser.reparse(r#"{"key": "value"}"#)?;
-    /// assert_eq!(value.get("key").unwrap().as_str(), Some("value"));
+    /// assert_eq!(value.get("key").and_then(|v| v.as_str()), Some("value"));
     /// # Ok::<(), rust_json_parser::error::JsonError>(())
     /// ```
     ///

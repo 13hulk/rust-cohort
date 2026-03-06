@@ -231,12 +231,10 @@ impl Tokenizer {
                 }
 
                 // Unknown: return error
-                _ => {
-                    // Extract the actual char for the error message
-                    let ch = self.input[self.position..].chars().next().unwrap();
+                other => {
                     return Err(JsonError::UnexpectedToken {
                         expected: "valid JSON token".to_string(),
-                        found: ch.to_string(),
+                        found: (other as char).to_string(),
                         position: self.position,
                     });
                 }

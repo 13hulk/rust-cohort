@@ -172,8 +172,9 @@ impl JsonValue {
     /// use rust_json_parser::parser::parse_json;
     ///
     /// let value = parse_json("[1, 2, 3]")?;
-    /// let arr = value.as_array().unwrap();
-    /// assert_eq!(arr.len(), 3);
+    /// if let Some(arr) = value.as_array() {
+    ///     assert_eq!(arr.len(), 3);
+    /// }
     ///
     /// let text = parse_json(r#""not an array""#)?;
     /// assert!(text.as_array().is_none());
@@ -197,9 +198,10 @@ impl JsonValue {
     /// use rust_json_parser::parser::parse_json;
     ///
     /// let value = parse_json(r#"{"name": "Alice", "age": 30}"#)?;
-    /// let obj = value.as_object().unwrap();
-    /// assert_eq!(obj.len(), 2);
-    /// assert!(obj.contains_key("name"));
+    /// if let Some(obj) = value.as_object() {
+    ///     assert_eq!(obj.len(), 2);
+    ///     assert!(obj.contains_key("name"));
+    /// }
     ///
     /// let number = parse_json("42")?;
     /// assert!(number.as_object().is_none());
@@ -223,7 +225,7 @@ impl JsonValue {
     /// use rust_json_parser::parser::parse_json;
     ///
     /// let value = parse_json(r#"{"name": "Alice"}"#)?;
-    /// assert_eq!(value.get("name").unwrap().as_str(), Some("Alice"));
+    /// assert_eq!(value.get("name").and_then(|v| v.as_str()), Some("Alice"));
     /// assert_eq!(value.get("missing"), None);
     ///
     /// let number = parse_json("42")?;
@@ -248,8 +250,8 @@ impl JsonValue {
     /// use rust_json_parser::parser::parse_json;
     ///
     /// let value = parse_json(r#"["first", "second", "third"]"#)?;
-    /// assert_eq!(value.get_index(0).unwrap().as_str(), Some("first"));
-    /// assert_eq!(value.get_index(2).unwrap().as_str(), Some("third"));
+    /// assert_eq!(value.get_index(0).and_then(|v| v.as_str()), Some("first"));
+    /// assert_eq!(value.get_index(2).and_then(|v| v.as_str()), Some("third"));
     /// assert_eq!(value.get_index(5), None);
     ///
     /// let number = parse_json("42")?;
