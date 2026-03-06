@@ -13,10 +13,11 @@ fn main() {
         run_benchmark();
         return;
     }
-    let document = show_parsing();
-    show_object_access(&document);
-    show_array_access(&document);
-    show_primitives(&document);
+    if let Some(document) = show_parsing() {
+        show_object_access(&document);
+        show_array_access(&document);
+        show_primitives(&document);
+    }
     show_round_trip();
     show_edge_cases();
     show_escapes();
@@ -26,7 +27,7 @@ fn main() {
     show_python_bindings();
 }
 
-fn show_parsing() -> JsonValue {
+fn show_parsing() -> Option<JsonValue> {
     println!("=== Parsing a Complete JSON Document ===\n");
     let input = r#"{
         "name": "Alice",
@@ -37,10 +38,17 @@ fn show_parsing() -> JsonValue {
         "tags": ["developer", "rust"],
         "address": {"city": "Portland", "state": "OR"}
     }"#;
-    let value = parse_json(input).unwrap();
-    println!("Input:\n{}\n", input);
-    println!("Display output: {}\n", value);
-    value
+    match parse_json(input) {
+        Ok(value) => {
+            println!("Input:\n{}\n", input);
+            println!("Display output: {}\n", value);
+            Some(value)
+        }
+        Err(e) => {
+            println!("  Parse error: {}", e);
+            None
+        }
+    }
 }
 
 fn show_object_access(document: &JsonValue) {
@@ -51,68 +59,90 @@ fn show_object_access(document: &JsonValue) {
     println!("  .get(\"nickname\") => {:?}", document.get("nickname"));
     println!("  .get(\"missing\")  => {:?}", document.get("missing"));
 
-    let address = document.get("address").unwrap();
-    println!(
-        "  .get(\"address\").get(\"city\") => {:?}",
-        address.get("city")
-    );
+    if let Some(address) = document.get("address") {
+        println!(
+            "  .get(\"address\").get(\"city\") => {:?}",
+            address.get("city")
+        );
+    }
 }
 
 fn show_array_access(document: &JsonValue) {
     println!("\n=== Array Access ===\n");
-    let tags = document.get("tags").unwrap();
-    println!("  tags: {}", tags);
-    if let Some(arr) = tags.as_array() {
-        println!("  .as_array().len()  => {}", arr.len());
-        for (i, item) in arr.iter().enumerate() {
-            println!("  [{}] => {}", i, item);
+    if let Some(tags) = document.get("tags") {
+        println!("  tags: {}", tags);
+        if let Some(arr) = tags.as_array() {
+            println!("  .as_array().len()  => {}", arr.len());
+            for (i, item) in arr.iter().enumerate() {
+                println!("  [{}] => {}", i, item);
+            }
         }
+        println!("  .get_index(0) => {:?}", tags.get_index(0));
+        println!("  .get_index(5) => {:?}", tags.get_index(5));
     }
-    println!("  .get_index(0) => {:?}", tags.get_index(0));
-    println!("  .get_index(5) => {:?}", tags.get_index(5));
 }
 
 fn show_primitives(document: &JsonValue) {
     println!("\n=== Primitive Accessors ===\n");
-    let name_val = document.get("name").unwrap();
-    let age_val = document.get("age").unwrap();
-    let active_val = document.get("active").unwrap();
-    let null_val = document.get("nickname").unwrap();
+    let name_val = document.get("name");
+    let age_val = document.get("age");
+    let active_val = document.get("active");
+    let null_val = document.get("nickname");
 
-    println!("  String \"Alice\":");
-    println!("    .as_str()  => {:?}", name_val.as_str());
-    println!("    .as_f64()  => {:?}", name_val.as_f64());
-    println!("    .as_bool() => {:?}", name_val.as_bool());
-    println!("    .is_null() => {}", name_val.is_null());
+    if let Some(name) = name_val {
+        println!("  String \"Alice\":");
+        println!("    .as_str()  => {:?}", name.as_str());
+        println!("    .as_f64()  => {:?}", name.as_f64());
+        println!("    .as_bool() => {:?}", name.as_bool());
+        println!("    .is_null() => {}", name.is_null());
+    }
 
-    println!("  Number 28:");
-    println!("    .as_f64()  => {:?}", age_val.as_f64());
-    println!("    .as_str()  => {:?}", age_val.as_str());
+    if let Some(age) = age_val {
+        println!("  Number 28:");
+        println!("    .as_f64()  => {:?}", age.as_f64());
+        println!("    .as_str()  => {:?}", age.as_str());
+    }
 
-    println!("  Boolean true:");
-    println!("    .as_bool() => {:?}", active_val.as_bool());
-    println!("    .as_f64()  => {:?}", active_val.as_f64());
+    if let Some(active) = active_val {
+        println!("  Boolean true:");
+        println!("    .as_bool() => {:?}", active.as_bool());
+        println!("    .as_f64()  => {:?}", active.as_f64());
+    }
 
-    println!("  Null:");
-    println!("    .is_null() => {}", null_val.is_null());
-    println!("    .as_str()  => {:?}", null_val.as_str());
+    if let Some(null) = null_val {
+        println!("  Null:");
+        println!("    .is_null() => {}", null.is_null());
+        println!("    .as_str()  => {:?}", null.as_str());
+    }
 
-    println!("  String .get(\"key\")     => {:?}", name_val.get("key"));
-    println!("  Number .get_index(0)   => {:?}", age_val.get_index(0));
-    println!("  String .as_array()     => {:?}", name_val.as_array());
-    println!("  String .as_object()    => {:?}", name_val.as_object());
+    if let Some(name) = name_val {
+        println!("  String .get(\"key\")     => {:?}", name.get("key"));
+        println!("  String .as_array()     => {:?}", name.as_array());
+        println!("  String .as_object()    => {:?}", name.as_object());
+    }
+    if let Some(age) = age_val {
+        println!("  Number .get_index(0)   => {:?}", age.get_index(0));
+    }
 }
 
 fn show_round_trip() {
     println!("\n=== Display Round-Trip ===\n");
     let input = r#"[1,"two",true,null]"#;
-    let parsed = parse_json(input).unwrap();
-    let serialized = parsed.to_string();
-    let reparsed = parse_json(&serialized).unwrap();
-    println!("  Original:   {}", input);
-    println!("  Serialized: {}", serialized);
-    println!("  Re-parsed:  {}", reparsed);
-    println!("  Match: {}", parsed == reparsed);
+    match parse_json(input) {
+        Ok(parsed) => {
+            let serialized = parsed.to_string();
+            match parse_json(&serialized) {
+                Ok(reparsed) => {
+                    println!("  Original:   {}", input);
+                    println!("  Serialized: {}", serialized);
+                    println!("  Re-parsed:  {}", reparsed);
+                    println!("  Match: {}", parsed == reparsed);
+                }
+                Err(e) => println!("  Re-parse error: {}", e),
+            }
+        }
+        Err(e) => println!("  Parse error: {}", e),
+    }
 }
 
 fn show_edge_cases() {
@@ -129,25 +159,30 @@ fn show_edge_cases() {
         ("Negative number", "-3.14"),
     ];
     for (label, json) in &cases {
-        let result = parse_json(json).unwrap();
-        println!("  {:<16} {} => {}", label, json, result);
+        match parse_json(json) {
+            Ok(result) => println!("  {:<16} {} => {}", label, json, result),
+            Err(e) => println!("  {:<16} {} => error: {}", label, json, e),
+        }
     }
 }
 
 fn show_escapes() {
     println!("\n=== Escape Sequences ===\n");
     let input = r#"{"tab": "a\tb", "newline": "a\nb", "quote": "a\"b", "backslash": "a\\b", "unicode": "\u0041\u0042\u0043"}"#;
-    let escaped = parse_json(input).unwrap();
+    let escaped = match parse_json(input) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("  Parse error: {}", e);
+            return;
+        }
+    };
     println!("  Input: {}", input);
     let fields = ["tab", "newline", "quote", "backslash", "unicode"];
     for field in &fields {
-        if let Some(val) = escaped.get(field) {
-            println!(
-                "  {:<10} {:?} (Display: {})",
-                format!("{}:", field),
-                val.as_str().unwrap(),
-                val
-            );
+        if let Some(val) = escaped.get(field)
+            && let Some(s) = val.as_str()
+        {
+            println!("  {:<10} {:?} (Display: {})", format!("{}:", field), s, val);
         }
     }
 }
@@ -179,8 +214,10 @@ fn show_struct_api() {
         Err(e) => println!("  Tokenize error: {}", e),
     }
 
-    let conv_result = parse_json(input).unwrap();
-    println!("  parse_json() gives same result: {}", conv_result);
+    match parse_json(input) {
+        Ok(conv_result) => println!("  parse_json() gives same result: {}", conv_result),
+        Err(e) => println!("  parse_json() error: {}", e),
+    }
 }
 
 fn show_error_handling() {
@@ -267,7 +304,10 @@ fn run_benchmark() {
         for iterations in [100, 1_000, 10_000] {
             let start = Instant::now();
             for _ in 0..iterations {
-                let _ = parser.reparse(&input).unwrap();
+                if let Err(e) = parser.reparse(&input) {
+                    println!("  Parse error: {}", e);
+                    break;
+                }
             }
             let elapsed = start.elapsed();
             let per_iter_us = elapsed.as_secs_f64() * 1_000_000.0 / iterations as f64;

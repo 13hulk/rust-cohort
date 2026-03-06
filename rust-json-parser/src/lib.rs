@@ -21,8 +21,8 @@
 //! use rust_json_parser::parser::parse_json;
 //!
 //! let value = parse_json(r#"{"name": "Alice", "age": 30}"#)?;
-//! assert_eq!(value.get("name").unwrap().as_str(), Some("Alice"));
-//! assert_eq!(value.get("age").unwrap().as_f64(), Some(30.0));
+//! assert_eq!(value.get("name").and_then(|v| v.as_str()), Some("Alice"));
+//! assert_eq!(value.get("age").and_then(|v| v.as_f64()), Some(30.0));
 //! # Ok::<(), rust_json_parser::error::JsonError>(())
 //! ```
 
