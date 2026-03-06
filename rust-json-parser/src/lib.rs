@@ -48,31 +48,31 @@ mod integration_tests {
 
     #[test]
     fn test_parse_string_value() {
-        let result = JsonParser::new(r#""hello""#).unwrap().parse().unwrap();
+        let result = JsonParser::new().parse(r#""hello""#).unwrap();
         assert_eq!(result, JsonValue::String("hello".to_string()));
     }
 
     #[test]
     fn test_parse_number_value() {
-        let result = JsonParser::new("42.5").unwrap().parse().unwrap();
+        let result = JsonParser::new().parse("42.5").unwrap();
         assert_eq!(result, JsonValue::Number(42.5));
     }
 
     #[test]
     fn test_parse_boolean_value() {
-        let result = JsonParser::new("true").unwrap().parse().unwrap();
+        let result = JsonParser::new().parse("true").unwrap();
         assert_eq!(result, JsonValue::Boolean(true));
     }
 
     #[test]
     fn test_parse_null_value() {
-        let result = JsonParser::new("null").unwrap().parse().unwrap();
+        let result = JsonParser::new().parse("null").unwrap();
         assert_eq!(result, JsonValue::Null);
     }
 
     #[test]
     fn test_error_propagation() {
-        let result = JsonParser::new("@invalid");
+        let result = JsonParser::new().parse("@invalid");
         assert!(result.is_err());
         match result {
             Err(JsonError::UnexpectedToken { found, .. }) => {
