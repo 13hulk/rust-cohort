@@ -206,12 +206,9 @@ fn show_struct_api() {
     println!("\n=== JsonParser Struct API ===\n");
     let input = r#"{"method": "struct"}"#;
     println!("  Input: {}", input);
-    match JsonParser::new(input) {
-        Ok(mut parser) => match parser.parse() {
-            Ok(val) => println!("  Result: {}", val),
-            Err(e) => println!("  Parse error: {}", e),
-        },
-        Err(e) => println!("  Tokenize error: {}", e),
+    match JsonParser::new().parse(input) {
+        Ok(val) => println!("  Result: {}", val),
+        Err(e) => println!("  Parse error: {}", e),
     }
 
     match parse_json(input) {
@@ -300,11 +297,11 @@ fn run_benchmark() {
             input.len()
         );
 
-        let mut parser = JsonParser::new_empty();
+        let mut parser = JsonParser::new();
         for iterations in [100, 1_000, 10_000] {
             let start = Instant::now();
             for _ in 0..iterations {
-                if let Err(e) = parser.reparse(&input) {
+                if let Err(e) = parser.parse(&input) {
                     println!("  Parse error: {}", e);
                     break;
                 }

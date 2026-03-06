@@ -52,7 +52,7 @@ impl From<JsonError> for PyErr {
 /// Parse a JSON string and return a Python object.
 #[pyfunction]
 fn parse_json(py: Python<'_>, input: &str) -> PyResult<PyObject> {
-    let value = crate::parser::JsonParser::new(input)?.parse()?;
+    let value = crate::parser::JsonParser::new().parse(input)?;
     Ok(value.into_pyobject(py)?.unbind())
 }
 
@@ -60,7 +60,7 @@ fn parse_json(py: Python<'_>, input: &str) -> PyResult<PyObject> {
 #[pyfunction]
 fn parse_json_file(py: Python<'_>, path: &str) -> PyResult<PyObject> {
     let contents = fs::read_to_string(path)?;
-    let value = crate::parser::JsonParser::new(&contents)?.parse()?;
+    let value = crate::parser::JsonParser::new().parse(&contents)?;
     Ok(value.into_pyobject(py)?.unbind())
 }
 
@@ -190,17 +190,17 @@ fn benchmark_performance(
     json_str: &str,
     iterations: usize,
 ) -> PyResult<(f64, f64, f64)> {
-    let mut parser = crate::parser::JsonParser::new_empty();
+    let mut parser = crate::parser::JsonParser::new();
 
     // Warmup Rust parser (100 iterations)
     for _ in 0..100 {
-        let _ = parser.reparse(json_str);
+        let _ = parser.parse(json_str);
     }
 
     // Time Rust parser
     let start = Instant::now();
     for _ in 0..iterations {
-        let _ = parser.reparse(json_str);
+        let _ = parser.parse(json_str);
     }
     let rust_time = start.elapsed().as_secs_f64();
 
