@@ -1,95 +1,98 @@
-# Rust JSON Parser - Architecture & API
+# 🦀 Rust API Reference
 
-## Architecture
+**The guts of the parser.** Module-by-module guide with code examples you can copy-paste and actually run.
 
-Two-phase pipeline: raw JSON text -> token stream -> value tree.
+| | |
+|---|---|
+| 🦀 Modules | ![modules](https://img.shields.io/badge/modules-5-blue) |
+| 📖 Doc tests | ![doc tests](https://img.shields.io/badge/doc_tests-18_passing-brightgreen) |
+| ⚡ Optimizations | ![opt sites](https://img.shields.io/badge/with__capacity-12_sites-blue) |
 
-```
-"{"key": [1, true]}"
-        |
-        v
-  Tokenizer::tokenize()
-        |
-        v
-[LeftBrace, String("key"), Colon, LeftBracket, Number(1.0), Comma, Boolean(true), RightBracket, RightBrace]
-        |
-        v
-  JsonParser::parse()
-        |
-        v
-Object({"key": Array([Number(1.0), Boolean(true)])})
-```
+## 📑 Index
 
-## Modules
+- [🔍 Tokenizer](#-tokenizer--tokenizerrs) — byte scanner, token variants, escape handling
+- [🌳 Parser](#-parser--parserrs) — recursive descent, convenience API, struct API
+- [💎 Value](#-value--valuers) — `JsonValue` enum, accessors, serialization
+- [❌ Error](#-error--errorrs) — error variants, positional diagnostics
+- [🚀 Optimizations](#-optimizations) — capacity hints, buffer reuse, byte-scan tricks
+- **[⬆ Project Internals](../README.md)** · **[🐍 Python API](../python/README.md)**
 
-### Tokenizer (`tokenizer.rs`)
+---
 
-Scans JSON text byte by byte and produces a flat token stream. Pre-allocates the token vector with `Vec::with_capacity(input.len() / 3)` based on the heuristic that tokens average roughly 3 bytes each. Supports buffer reuse via `retokenize()` and `tokenize_into()` for benchmark loops.
+## 🔍 Tokenizer · `tokenizer.rs`
+
+Scans JSON byte-by-byte into a flat token stream. Pre-allocates with `Vec::with_capacity(input.len() / 3)` — tokens average ~3 bytes each.
 
 ```rust
 use rust_json_parser::tokenizer::Tokenizer;
 
 let tokens = Tokenizer::new(r#"{"key": 42}"#).tokenize().unwrap();
-// [LeftBrace, String("key"), Colon, Number(42.0), RightBrace]
+// → [LeftBrace, String("key"), Colon, Number(42.0), RightBrace]
 ```
 
-**Token variants:** `LeftBrace`, `RightBrace`, `LeftBracket`, `RightBracket`, `Comma`, `Colon`, `String(String)`, `Number(f64)`, `Boolean(bool)`, `Null`
+**Token variants:** `LeftBrace` `RightBrace` `LeftBracket` `RightBracket` `Comma` `Colon` `String(String)` `Number(f64)` `Boolean(bool)` `Null`
 
-**Escape sequences:** `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`, `\uXXXX` (unicode)
+**Escape sequences:** `\"` `\\` `\/` `\b` `\f` `\n` `\r` `\t` `\uXXXX`
 
-**Capacity hints:** String buffers (`String::with_capacity(32)`). Keywords and numbers use slicing (no allocation needed).
+**Buffer reuse:** `retokenize()` clears and re-scans (reuses the `Vec<Token>` allocation). `tokenize_into()` appends to an existing vector.
 
-### Parser (`parser.rs`)
+---
 
-Recursive descent parser that walks the token stream and builds a value tree. Pre-allocates arrays with `Vec::with_capacity` and objects with `HashMap::with_capacity` based on remaining token count estimates. Reuses internal buffers across multiple `parse()` calls.
+## 🌳 Parser · `parser.rs`
+
+Recursive descent over the token stream. Two ways to use it:
 
 ```rust
 use rust_json_parser::parser::{parse_json, JsonParser};
 
-// Convenience function
+// Quick and easy — one-liner
 let value = parse_json(r#"{"name": "Alice"}"#).unwrap();
 
-// Or with the struct API (reuses buffers across calls)
+// Reusable — amortizes allocations across multiple parses
 let mut parser = JsonParser::new();
-let value = parser.parse(r#"{"name": "Alice"}"#).unwrap();
+let v1 = parser.parse(r#"{"a": 1}"#).unwrap();
+let v2 = parser.parse(r#"{"b": 2}"#).unwrap();  // reuses internal buffers
 ```
 
-### Value (`value.rs`)
+Pre-allocates arrays/objects with `with_capacity()` based on remaining token count estimates.
 
-`JsonValue` enum with 6 variants and accessor methods. The `Display` implementation uses a private `JsonFormat` trait with per-type formatting methods. String escaping uses byte scanning with bulk `push_str()` copies for unescaped segments.
+---
+
+## 💎 Value · `value.rs`
+
+Six variants. Type-safe accessors. Round-trip serialization via `Display`.
 
 ```rust
 use rust_json_parser::parser::parse_json;
 
-let value = parse_json(r#"{"name": "Alice", "scores": [95, 87]}"#).unwrap();
+let v = parse_json(r#"{"name": "Alice", "scores": [95, 87]}"#).unwrap();
 
-// Object access
-value.get("name");              // Some(&JsonValue::String("Alice"))
-value.get("missing");           // None
+v.get("name").unwrap().as_str();        // Some("Alice")
+v.get("scores").unwrap().get_index(0);  // Some(&Number(95.0))
+v.get("missing");                       // None — no panics, ever
 
-// Array access
-let scores = value.get("scores").unwrap();
-scores.get_index(0);            // Some(&JsonValue::Number(95.0))
-scores.as_array().unwrap().len(); // 2
-
-// Primitive extraction
-value.get("name").unwrap().as_str();   // Some("Alice")
-value.get("name").unwrap().as_f64();   // None (wrong type)
-value.get("name").unwrap().is_null();  // false
-
-// Display (serializes back to valid JSON)
-let json_string = value.to_string();
-let reparsed = parse_json(&json_string).unwrap();
-assert_eq!(value, reparsed);
+// Round-trip: Display serializes back to valid JSON
+let json_str = v.to_string();
+let reparsed = parse_json(&json_str).unwrap();
+assert_eq!(v, reparsed);  // ✅
 ```
 
-**Variants:** `Null`, `Boolean(bool)`, `Number(f64)`, `String(String)`, `Array(Vec<JsonValue>)`, `Object(HashMap<String, JsonValue>)`
+| Variant | 🦀 Type | Accessor |
+|---------|---------|----------|
+| `Null` | — | `is_null()` |
+| `Boolean(bool)` | `bool` | `as_bool()` |
+| `Number(f64)` | `f64` | `as_f64()` |
+| `String(String)` | `String` | `as_str()` |
+| `Array(Vec<JsonValue>)` | `Vec` | `as_array()`, `get_index(i)` |
+| `Object(HashMap<String, JsonValue>)` | `HashMap` | `as_object()`, `get(key)` |
 
-**Accessors:** `is_null()`, `as_str()`, `as_f64()`, `as_bool()`, `as_array()`, `as_object()`, `get(key)`, `get_index(i)`
+The `Display` impl uses a private `JsonFormat` trait — per-type formatting methods, no giant match blocks. String escaping uses byte-scanning with bulk `push_str()` for unescaped runs.
 
-### Error (`error.rs`)
+---
 
-All errors carry position information for diagnostics.
+## ❌ Error · `error.rs`
+
+Every error knows *where* it happened. Position info is baked into each variant.
 
 ```rust
 use rust_json_parser::parser::parse_json;
@@ -97,39 +100,32 @@ use rust_json_parser::error::JsonError;
 
 match parse_json("@invalid") {
     Err(JsonError::UnexpectedToken { expected, found, position }) => {
-        // expected: "valid JSON token", found: "@", position: 0
+        // position: 0, found: "@" — straight to the crime scene 🔍
     }
     _ => {}
 }
 ```
 
-**Variants:** `UnexpectedToken`, `UnexpectedEndOfInput`, `InvalidNumber`, `InvalidEscape`, `InvalidUnicode`
+| Variant | When |
+|---------|------|
+| `UnexpectedToken` | Wrong token type at position |
+| `UnexpectedEndOfInput` | JSON cut short |
+| `InvalidNumber` | Malformed number literal |
+| `InvalidEscape` | Bad escape sequence in string |
+| `InvalidUnicode` | Bad `\uXXXX` codepoint |
 
-## Documentation
+---
 
-The crate enforces `#![warn(missing_docs)]` at the top of `lib.rs`, ensuring all public items (modules, structs, enums, variants, functions, methods) have doc comments. Many doc comments include runnable examples that serve as both documentation and tests.
+## 🚀 Optimizations
 
-```bash
-make doc        # generate docs (open with: cargo doc --no-default-features --open)
-make doc-test   # run 18 doc tests
-```
+Memory pre-allocation throughout. No allocation left behind. 🪖
 
-## Optimizations
-
-Memory pre-allocation is used throughout to reduce allocations:
-
-- **Tokenizer:** Token vector sized to `input.len() / 3`, string buffers to 32 chars. Buffer reuse via `retokenize()`
-- **Parser:** Arrays and objects pre-allocated based on remaining token count (capped). Buffer reuse via `reparse()`
-- **Value:** String escaping via byte scan + bulk `push_str()` copies
-- **Python bindings:** Conversion buffers for lists, dicts, and serialization output
-
-## Building
-
-```bash
-make build      # Rust-only build (no Python linkage)
-make test       # Run 180 Rust tests (162 unit + 18 doc)
-make doc        # Generate API documentation
-make all        # fmt + clippy + test + build
-```
-
-All Makefile targets use `--no-default-features` to exclude PyO3 (which requires a Python environment to link against).
+| Technique | Where | Heuristic |
+|-----------|-------|-----------|
+| `Vec::with_capacity()` | Token vector | `input.len() / 3` |
+| `String::with_capacity()` | String token buffer | 32 chars |
+| `Vec::with_capacity()` | Array values | `remaining_tokens / 2` (capped) |
+| `HashMap::with_capacity()` | Object entries | `remaining_tokens / 4` (capped) |
+| `retokenize()` | Benchmark loops | Reuses token vector across iterations |
+| `reparse()` | Benchmark loops | Reuses parser buffers across iterations |
+| Byte-scan + bulk copy | `to_json_string()` | Scan for escapes, `push_str()` unescaped segments |
